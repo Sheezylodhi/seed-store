@@ -9,7 +9,7 @@ import Review from "@/models/Review";
 import ProductDetailClient from "@/components/shop/ProductDetailClient";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/home/Footer";
-
+import "@/models/Category";
 /* =========================================================
    PAGE CONFIG
 ========================================================= */
