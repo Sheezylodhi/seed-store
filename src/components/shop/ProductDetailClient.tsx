@@ -31,6 +31,7 @@ import {
 
 import { useCart } from "@/context/CartContext";
 import WishlistButton from "@/components/WishlistButton";
+import "@/models/Category";
 
 import type { Product } from "@/app/shop/[slug]/page";
 
