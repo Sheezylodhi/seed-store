@@ -32,7 +32,6 @@ import {
 import { useCart } from "@/context/CartContext";
 import WishlistButton from "@/components/WishlistButton";
 
-
 import type { Product } from "@/app/shop/[slug]/page";
 
 /* =========================================================
@@ -81,8 +80,7 @@ function RelatedProduct({
   product: Product;
 }) {
   const activeVariant = product.variants?.find(
-    (variant) =>
-      variant.isActive !== false
+    (variant) => variant.isActive !== false
   );
 
   const price =
@@ -304,8 +302,6 @@ function ImageLightbox({
           }
         }}
       >
-        {/* TOP BAR */}
-
         <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-7">
           <div className="flex items-center gap-3">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/60">
@@ -326,8 +322,6 @@ function ImageLightbox({
             <X size={18} />
           </button>
         </div>
-
-        {/* MAIN IMAGE */}
 
         <div className="flex h-full items-center justify-center overflow-hidden px-5 py-24 sm:px-20">
           <AnimatePresence mode="wait">
@@ -354,8 +348,6 @@ function ImageLightbox({
             />
           </AnimatePresence>
         </div>
-
-        {/* LEFT / RIGHT */}
 
         {images.length > 1 && (
           <>
@@ -390,8 +382,6 @@ function ImageLightbox({
             </button>
           </>
         )}
-
-        {/* ZOOM CONTROLS */}
 
         <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-[#18201b]/90 p-1.5 shadow-2xl backdrop-blur-xl">
           <button
@@ -429,8 +419,6 @@ function ImageLightbox({
             Reset
           </button>
         </div>
-
-        {/* THUMBNAILS */}
 
         {images.length > 1 && (
           <div className="absolute bottom-5 right-5 hidden max-w-[300px] gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#18201b]/90 p-2 backdrop-blur-xl lg:flex">
@@ -542,7 +530,7 @@ export default function ProductDetailClient({
   const [openSection, setOpenSection] =
     useState<string | null>("description");
 
-    /* =======================================================
+  /* =======================================================
      REVIEW FORM
   ======================================================= */
 
@@ -685,48 +673,71 @@ export default function ProductDetailClient({
      CART
   ======================================================= */
 
-const createCartItem = () => {
-  const deliveryType: "paid" | "free" =
-    product.deliveryType === "paid" ? "paid" : "free";
+  const createCartItem = () => {
+    const deliveryType: "paid" | "free" =
+      product.deliveryType === "paid"
+        ? "paid"
+        : "free";
 
-  return {
-    id: selectedVariant
-      ? `${product.id}-${selectedVariant.id}`
-      : product.id,
+    return {
+      /*
+       * IMPORTANT:
+       * `id` is the unique cart-line ID.
+       * It is NOT necessarily the MongoDB Product ID.
+       */
+      id: selectedVariant
+        ? `${product.id}-${selectedVariant.id}`
+        : product.id,
 
-    slug: product.slug,
+      /*
+       * IMPORTANT:
+       * This is the real MongoDB Product `_id`.
+       * The checkout API uses this field
+       * to find the product.
+       */
+      productId: product.id,
 
-    name: product.name,
+      /*
+       * IMPORTANT:
+       * This is the selected MongoDB variant `_id`.
+       */
+      variantId:
+        selectedVariant?.id || null,
 
-    image: product.images?.[0] || "",
+      slug: product.slug,
+      name: product.name,
+      image: product.images?.[0] || "",
+      productType: product.type,
 
-    productType: product.type,
+      packSize: selectedPackSize,
 
-    packSize: selectedPackSize,
+      price: selectedPrice,
+      quantity,
 
-    price: selectedPrice,
+      deliveryType,
 
-    quantity,
+      deliveryCharge:
+        deliveryType === "paid"
+          ? Number(
+              product.deliveryCharge
+            ) || 0
+          : 0,
 
-    deliveryType,
-
-    deliveryCharge:
-      deliveryType === "paid"
-        ? Number(product.deliveryCharge) || 0
-        : 0,
-
-    ...(selectedCompareAtPrice
-      ? {
-          oldPrice: selectedCompareAtPrice,
-        }
-      : {}),
+      ...(selectedCompareAtPrice
+        ? {
+            oldPrice:
+              selectedCompareAtPrice,
+          }
+        : {}),
+    };
   };
-};
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
 
-    addToCart(createCartItem());
+    const cartItem = createCartItem();
+
+    addToCart(cartItem);
 
     setCartAdded(true);
 
@@ -742,7 +753,9 @@ const createCartItem = () => {
 
     setBuying(true);
 
-    addToCart(createCartItem());
+    const cartItem = createCartItem();
+
+    addToCart(cartItem);
 
     window.setTimeout(() => {
       window.location.href =
@@ -750,7 +763,7 @@ const createCartItem = () => {
     }, 350);
   };
 
-    /* =======================================================
+  /* =======================================================
      SUBMIT REVIEW
   ======================================================= */
 
@@ -767,12 +780,10 @@ const createCartItem = () => {
     const title = reviewTitle.trim();
     const comment = reviewComment.trim();
 
-    /* ---------------------------------------------
-       CLIENT VALIDATION
-    --------------------------------------------- */
-
     if (!name) {
-      setReviewError("Please enter your name.");
+      setReviewError(
+        "Please enter your name."
+      );
       return;
     }
 
@@ -819,10 +830,6 @@ const createCartItem = () => {
       return;
     }
 
-    /* ---------------------------------------------
-       SUBMIT
-    --------------------------------------------- */
-
     setReviewSubmitting(true);
 
     try {
@@ -852,10 +859,6 @@ const createCartItem = () => {
             "Unable to submit your review."
         );
       }
-
-      /* ---------------------------------------------
-         SUCCESS
-      --------------------------------------------- */
 
       setReviewMessage(
         "Thank you! Your review has been submitted and is awaiting approval."
@@ -927,9 +930,7 @@ const createCartItem = () => {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f8f6ef] text-[#252923]">
 
-      {/* ===================================================
-          LIGHTBOX
-      =================================================== */}
+      {/* LIGHTBOX */}
 
       {lightboxOpen && (
         <ImageLightbox
@@ -942,9 +943,7 @@ const createCartItem = () => {
         />
       )}
 
-      {/* ===================================================
-          BREADCRUMB
-      =================================================== */}
+      {/* BREADCRUMB */}
 
       <section className="mx-auto max-w-[1280px] px-5 pt-28 sm:px-8 lg:px-10 lg:pt-32">
         <nav
@@ -994,24 +993,16 @@ const createCartItem = () => {
         </nav>
       </section>
 
-      {/* ===================================================
-          HERO
-      =================================================== */}
+      {/* HERO */}
 
       <section className="mx-auto max-w-[1280px] px-5 pb-20 pt-8 sm:px-8 lg:px-10 lg:pb-28 lg:pt-10">
         <div className="grid items-start gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16 xl:gap-24">
 
-          {/* =================================================
-              GALLERY
-          ================================================= */}
+          {/* GALLERY */}
 
           <div className="lg:sticky lg:top-24">
 
-            {/* MAIN IMAGE */}
-
             <div className="group relative overflow-hidden rounded-[34px] border border-[#e4e0d5] bg-[#eeece3] shadow-[0_30px_80px_rgba(35,70,54,0.09)]">
-
-              {/* top badges */}
 
               <div className="absolute left-5 top-5 z-20 flex items-center gap-2">
                 {product.badge && (
@@ -1029,8 +1020,6 @@ const createCartItem = () => {
                   )}
               </div>
 
-              {/* wishlist */}
-
               <div className="absolute right-5 top-5 z-20">
                 <WishlistButton
                   productId={product.id}
@@ -1038,8 +1027,6 @@ const createCartItem = () => {
                   size="lg"
                 />
               </div>
-
-              {/* IMAGE */}
 
               <button
                 type="button"
@@ -1049,9 +1036,7 @@ const createCartItem = () => {
                 className="block w-full cursor-zoom-in"
                 aria-label="Open product gallery"
               >
-                <AnimatePresence
-                  mode="wait"
-                >
+                <AnimatePresence mode="wait">
                   <motion.img
                     key={`${safeImages[activeImage]}-${activeImage}`}
                     src={
@@ -1076,22 +1061,16 @@ const createCartItem = () => {
                 </AnimatePresence>
               </button>
 
-              {/* zoom indicator */}
-
               <div className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full border border-white/60 bg-white/90 px-3.5 py-2.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#315c45] shadow-sm backdrop-blur">
                 <Expand size={12} />
                 View larger
               </div>
-
-              {/* counter */}
 
               <div className="absolute bottom-5 right-5 rounded-full border border-white/60 bg-white/90 px-3.5 py-2.5 text-[9px] font-semibold text-[#315c45] shadow-sm backdrop-blur">
                 {activeImage + 1} /{" "}
                 {safeImages.length}
               </div>
             </div>
-
-            {/* THUMBNAILS */}
 
             {safeImages.length > 1 && (
               <div className="mt-4 grid grid-cols-4 gap-3">
@@ -1142,20 +1121,14 @@ const createCartItem = () => {
               </div>
             )}
 
-            {/* gallery hint */}
-
             <p className="mt-4 text-center text-[9px] font-medium uppercase tracking-[0.14em] text-[#999d94]">
               Click the main image to inspect it in detail
             </p>
           </div>
 
-          {/* =================================================
-              PRODUCT INFORMATION
-          ================================================= */}
+          {/* PRODUCT INFORMATION */}
 
           <div className="lg:pt-1">
-
-            {/* eyebrow */}
 
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center rounded-full bg-[#e4eee3] px-3.5 py-2 text-[8px] font-bold uppercase tracking-[0.17em] text-[#315c45]">
@@ -1169,21 +1142,15 @@ const createCartItem = () => {
               )}
             </div>
 
-            {/* title */}
-
             <h1 className="mt-6 max-w-[700px] font-serif text-[43px] leading-[0.98] tracking-[-0.04em] text-[#234636] sm:text-5xl lg:text-[62px]">
               {product.name}
             </h1>
-
-            {/* subtitle */}
 
             {product.subtitle && (
               <p className="mt-5 max-w-[610px] text-[15px] leading-7 text-[#727870]">
                 {product.subtitle}
               </p>
             )}
-
-            {/* rating */}
 
             <div className="mt-6 flex flex-wrap items-center gap-4">
               {product.reviewCount > 0 ? (
@@ -1222,11 +1189,8 @@ const createCartItem = () => {
               )}
             </div>
 
-            {/* price card */}
-
             <div className="mt-8 rounded-[24px] border border-[#ddd9ce] bg-white p-5 shadow-[0_15px_40px_rgba(35,70,54,0.045)] sm:p-6">
               <div className="flex flex-wrap items-end justify-between gap-5">
-
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#999d94]">
                     Current price
@@ -1267,8 +1231,6 @@ const createCartItem = () => {
               </div>
             </div>
 
-            {/* overview */}
-
             {product.overview && (
               <div className="mt-7">
                 <p className="max-w-[650px] whitespace-pre-line text-[14px] leading-8 text-[#676e67]">
@@ -1277,13 +1239,9 @@ const createCartItem = () => {
               </div>
             )}
 
-            {/* separator */}
-
             <div className="my-8 h-px bg-[#dedad0]" />
 
-            {/* =================================================
-                PACK SIZE
-            ================================================= */}
+            {/* PACK SIZE */}
 
             {product.variants?.length >
               0 && (
@@ -1378,9 +1336,7 @@ const createCartItem = () => {
               </div>
             )}
 
-            {/* =================================================
-                STOCK
-            ================================================= */}
+            {/* STOCK */}
 
             <div className="mt-6 flex items-center justify-between rounded-[18px] border border-[#dfe2da] bg-[#f7faf5] px-4 py-3.5">
               <div className="flex items-center gap-3">
@@ -1407,8 +1363,7 @@ const createCartItem = () => {
 
                   {!isOutOfStock && (
                     <p className="mt-0.5 text-[9px] text-[#8a9088]">
-                      Selected option:
-                      {" "}
+                      Selected option:{" "}
                       {selectedPackSize}
                     </p>
                   )}
@@ -1423,9 +1378,7 @@ const createCartItem = () => {
               )}
             </div>
 
-            {/* =================================================
-                QUANTITY + TOTAL
-            ================================================= */}
+            {/* QUANTITY */}
 
             <div className="mt-7 flex items-end justify-between gap-5">
               <div>
@@ -1484,9 +1437,7 @@ const createCartItem = () => {
               </div>
             </div>
 
-            {/* =================================================
-                CTA
-            ================================================= */}
+            {/* CTA */}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_155px]">
               <button
@@ -1514,9 +1465,7 @@ const createCartItem = () => {
                   </>
                 ) : (
                   <>
-                    <ShoppingBag
-                      size={18}
-                    />
+                    <ShoppingBag size={18} />
                     Add to Cart
                   </>
                 )}
@@ -1536,17 +1485,13 @@ const createCartItem = () => {
                 ) : (
                   <>
                     Buy Now
-                    <ArrowRight
-                      size={16}
-                    />
+                    <ArrowRight size={16} />
                   </>
                 )}
               </button>
             </div>
 
-            {/* =================================================
-                WISHLIST
-            ================================================= */}
+            {/* WISHLIST */}
 
             <div className="mt-3">
               <div className="flex items-center justify-center">
@@ -1563,9 +1508,7 @@ const createCartItem = () => {
               </div>
             </div>
 
-            {/* =================================================
-                TRUST
-            ================================================= */}
+            {/* TRUST */}
 
             <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-[20px] border border-[#dedbd1] bg-white">
               <div className="flex flex-col items-center gap-2 border-r border-[#e4e1d8] px-3 py-5 text-center">
@@ -1621,9 +1564,7 @@ const createCartItem = () => {
         </div>
       </section>
 
-      {/* ===================================================
-          PRODUCT DETAILS
-      =================================================== */}
+      {/* PRODUCT DETAILS */}
 
       <section className="border-y border-[#e1ddd3] bg-white">
         <div className="mx-auto max-w-[1120px] px-5 py-20 sm:px-8 lg:py-28">
@@ -1871,11 +1812,7 @@ const createCartItem = () => {
                               className="flex gap-4 rounded-[17px] border border-[#e5e2d8] bg-[#faf9f5] p-4"
                             >
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#315c45] text-white">
-                                <Check
-                                  size={
-                                    14
-                                  }
-                                />
+                                <Check size={14} />
                               </span>
 
                               <p className="pt-1 text-sm leading-6 text-[#59615a]">
@@ -2091,589 +2028,525 @@ const createCartItem = () => {
         </div>
       </section>
 
-      {/* ===================================================
-          REVIEWS
-      =================================================== */}
+      {/* REVIEWS */}
 
-     {/* ===================================================
-    REVIEWS
-=================================================== */}
+      <section
+        id="reviews"
+        className="border-b border-[#e2ded3] bg-[#f8f6ef]"
+      >
+        <div className="mx-auto max-w-[1120px] px-5 py-20 sm:px-8 lg:py-28">
 
-<section
-  id="reviews"
-  className="border-b border-[#e2ded3] bg-[#f8f6ef]"
->
-  <div className="mx-auto max-w-[1120px] px-5 py-20 sm:px-8 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[300px_1fr] lg:gap-20">
 
-    <div className="grid gap-12 lg:grid-cols-[300px_1fr] lg:gap-20">
+            <div className="lg:sticky lg:top-28 lg:self-start">
 
-      {/* =================================================
-          SUMMARY
-      ================================================= */}
+              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#315c45]">
+                Customer feedback
+              </p>
 
-      <div className="lg:sticky lg:top-28 lg:self-start">
+              <div className="mt-5 flex items-end gap-3">
+                <span className="font-serif text-7xl leading-none tracking-[-0.05em] text-[#234636]">
+                  {product.rating > 0
+                    ? product.rating.toFixed(1)
+                    : "—"}
+                </span>
 
-        <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#315c45]">
-          Customer feedback
-        </p>
+                {product.reviewCount > 0 && (
+                  <span className="pb-1 text-sm text-[#858980]">
+                    / 5
+                  </span>
+                )}
+              </div>
 
-        <div className="mt-5 flex items-end gap-3">
-          <span className="font-serif text-7xl leading-none tracking-[-0.05em] text-[#234636]">
-            {product.rating > 0
-              ? product.rating.toFixed(1)
-              : "—"}
-          </span>
+              {product.reviewCount > 0 && (
+                <div className="mt-4">
+                  <Stars
+                    rating={product.rating}
+                    size={16}
+                  />
+                </div>
+              )}
 
-          {product.reviewCount > 0 && (
-            <span className="pb-1 text-sm text-[#858980]">
-              / 5
-            </span>
-          )}
-        </div>
+              <p className="mt-4 max-w-[250px] text-sm leading-7 text-[#747970]">
+                {product.reviewCount > 0
+                  ? `Based on ${product.reviewCount} published customer ${
+                      product.reviewCount ===
+                      1
+                        ? "review"
+                        : "reviews"
+                    }.`
+                  : "No published customer reviews yet."}
+              </p>
 
-        {product.reviewCount > 0 && (
-          <div className="mt-4">
-            <Stars
-              rating={product.rating}
-              size={16}
-            />
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReviewForm(
+                    (current) => !current
+                  );
 
-        <p className="mt-4 max-w-[250px] text-sm leading-7 text-[#747970]">
-          {product.reviewCount > 0
-            ? `Based on ${product.reviewCount} published customer ${
-                product.reviewCount === 1
-                  ? "review"
-                  : "reviews"
-              }.`
-            : "No published customer reviews yet."}
-        </p>
+                  setReviewMessage("");
+                  setReviewError("");
+                }}
+                className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#315c45] px-5 text-xs font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636]"
+              >
+                <Star
+                  size={14}
+                  strokeWidth={1.8}
+                />
 
-        {/* =================================================
-            WRITE REVIEW BUTTON
-        ================================================= */}
-
-        <button
-          type="button"
-          onClick={() => {
-            setShowReviewForm(
-              (current) => !current
-            );
-
-            setReviewMessage("");
-            setReviewError("");
-          }}
-          className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#315c45] px-5 text-xs font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636]"
-        >
-          <Star
-            size={14}
-            strokeWidth={1.8}
-          />
-
-          {showReviewForm
-            ? "Close Review Form"
-            : "Write a Review"}
-        </button>
-
-      </div>
-
-      {/* =================================================
-          REVIEW CONTENT
-      ================================================= */}
-
-      <div>
-
-        {/* =================================================
-            SUCCESS MESSAGE
-        ================================================= */}
-
-        {reviewMessage && (
-          <div className="mb-8 flex gap-4 rounded-[20px] border border-[#d7e4d5] bg-[#edf5eb] p-5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#315c45] text-white">
-              <Check size={16} />
+                {showReviewForm
+                  ? "Close Review Form"
+                  : "Write a Review"}
+              </button>
             </div>
 
             <div>
-              <p className="text-sm font-bold text-[#234636]">
-                Review submitted
-              </p>
 
-              <p className="mt-1 text-xs leading-6 text-[#687068]">
-                {reviewMessage}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* =================================================
-            ERROR MESSAGE
-        ================================================= */}
-
-        {reviewError && (
-          <div className="mb-8 rounded-[20px] border border-[#ead7d2] bg-[#fff7f5] p-5">
-            <p className="text-sm font-bold text-[#9b5147]">
-              Unable to submit review
-            </p>
-
-            <p className="mt-1 text-xs leading-6 text-[#7d6d68]">
-              {reviewError}
-            </p>
-          </div>
-        )}
-
-        {/* =================================================
-            WRITE REVIEW FORM
-        ================================================= */}
-
-        <AnimatePresence initial={false}>
-          {showReviewForm && (
-            <motion.div
-              initial={{
-                opacity: 0,
-                height: 0,
-              }}
-              animate={{
-                opacity: 1,
-                height: "auto",
-              }}
-              exit={{
-                opacity: 0,
-                height: 0,
-              }}
-              className="mb-10 overflow-hidden"
-            >
-              <div className="rounded-[26px] border border-[#ddd9ce] bg-white p-6 shadow-[0_15px_40px_rgba(35,70,54,0.045)] sm:p-8">
-
-                <div className="max-w-[650px]">
-
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#315c45]">
-                    Share your experience
-                  </p>
-
-                  <h3 className="mt-3 font-serif text-3xl tracking-[-0.025em] text-[#234636]">
-                    What do you think?
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-7 text-[#747970]">
-                    Tell us what you think about this
-                    product. You do not need an account
-                    or a previous purchase to leave a
-                    review.
-                  </p>
-
-                  <p className="mt-2 text-[11px] leading-6 text-[#999d94]">
-                    Reviews are checked before they appear
-                    publicly.
-                  </p>
-
-                </div>
-
-                <form
-                  onSubmit={
-                    handleReviewSubmit
-                  }
-                  className="mt-8 space-y-6"
-                >
-
-                  {/* NAME + EMAIL */}
-
-                  <div className="grid gap-5 sm:grid-cols-2">
-
-                    <div>
-                      <label
-                        htmlFor="review-name"
-                        className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
-                      >
-                        Your name *
-                      </label>
-
-                      <input
-                        id="review-name"
-                        type="text"
-                        value={reviewName}
-                        onChange={(event) =>
-                          setReviewName(
-                            event.target.value
-                          )
-                        }
-                        placeholder="Your name"
-                        maxLength={100}
-                        disabled={
-                          reviewSubmitting
-                        }
-                        className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="review-email"
-                        className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
-                      >
-                        Email
-                        <span className="ml-1 normal-case tracking-normal text-[#aaa9a1]">
-                          (optional)
-                        </span>
-                      </label>
-
-                      <input
-                        id="review-email"
-                        type="email"
-                        value={reviewEmail}
-                        onChange={(event) =>
-                          setReviewEmail(
-                            event.target.value
-                          )
-                        }
-                        placeholder="you@example.com"
-                        maxLength={150}
-                        disabled={
-                          reviewSubmitting
-                        }
-                        className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
-                      />
-                    </div>
-
+              {reviewMessage && (
+                <div className="mb-8 flex gap-4 rounded-[20px] border border-[#d7e4d5] bg-[#edf5eb] p-5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#315c45] text-white">
+                    <Check size={16} />
                   </div>
 
-                  {/* RATING */}
-
                   <div>
+                    <p className="text-sm font-bold text-[#234636]">
+                      Review submitted
+                    </p>
 
-                    <label className="mb-3 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]">
-                      Your rating *
-                    </label>
+                    <p className="mt-1 text-xs leading-6 text-[#687068]">
+                      {reviewMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                    <div className="flex items-center gap-2">
+              {reviewError && (
+                <div className="mb-8 rounded-[20px] border border-[#ead7d2] bg-[#fff7f5] p-5">
+                  <p className="text-sm font-bold text-[#9b5147]">
+                    Unable to submit review
+                  </p>
 
-                      {[1, 2, 3, 4, 5].map(
-                        (star) => {
-                          const active =
-                            star <=
-                            reviewRating;
+                  <p className="mt-1 text-xs leading-6 text-[#7d6d68]">
+                    {reviewError}
+                  </p>
+                </div>
+              )}
 
-                          return (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() =>
-                                setReviewRating(
-                                  star
+              <AnimatePresence initial={false}>
+                {showReviewForm && (
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      height: 0,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      height: "auto",
+                    }}
+                    exit={{
+                      opacity: 0,
+                      height: 0,
+                    }}
+                    className="mb-10 overflow-hidden"
+                  >
+                    <div className="rounded-[26px] border border-[#ddd9ce] bg-white p-6 shadow-[0_15px_40px_rgba(35,70,54,0.045)] sm:p-8">
+
+                      <div className="max-w-[650px]">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#315c45]">
+                          Share your experience
+                        </p>
+
+                        <h3 className="mt-3 font-serif text-3xl tracking-[-0.025em] text-[#234636]">
+                          What do you think?
+                        </h3>
+
+                        <p className="mt-3 text-sm leading-7 text-[#747970]">
+                          Tell us what you think about this
+                          product. You do not need an account
+                          or a previous purchase to leave a
+                          review.
+                        </p>
+
+                        <p className="mt-2 text-[11px] leading-6 text-[#999d94]">
+                          Reviews are checked before they appear
+                          publicly.
+                        </p>
+                      </div>
+
+                      <form
+                        onSubmit={
+                          handleReviewSubmit
+                        }
+                        className="mt-8 space-y-6"
+                      >
+
+                        <div className="grid gap-5 sm:grid-cols-2">
+
+                          <div>
+                            <label
+                              htmlFor="review-name"
+                              className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
+                            >
+                              Your name *
+                            </label>
+
+                            <input
+                              id="review-name"
+                              type="text"
+                              value={reviewName}
+                              onChange={(event) =>
+                                setReviewName(
+                                  event.target.value
                                 )
                               }
+                              placeholder="Your name"
+                              maxLength={100}
                               disabled={
                                 reviewSubmitting
                               }
-                              aria-label={`Rate ${star} out of 5`}
-                              className="rounded-full p-1 text-[#315c45] transition-transform hover:scale-110 disabled:opacity-50"
+                              className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="review-email"
+                              className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
                             >
-                              <Star
-                                size={25}
-                                strokeWidth={
-                                  1.5
-                                }
-                                fill={
-                                  active
-                                    ? "currentColor"
-                                    : "none"
-                                }
-                              />
-                            </button>
-                          );
-                        }
-                      )}
+                              Email
+                              <span className="ml-1 normal-case tracking-normal text-[#aaa9a1]">
+                                (optional)
+                              </span>
+                            </label>
 
-                      <span className="ml-2 text-xs font-semibold text-[#747970]">
-                        {reviewRating}/5
-                      </span>
+                            <input
+                              id="review-email"
+                              type="email"
+                              value={reviewEmail}
+                              onChange={(event) =>
+                                setReviewEmail(
+                                  event.target.value
+                                )
+                              }
+                              placeholder="you@example.com"
+                              maxLength={150}
+                              disabled={
+                                reviewSubmitting
+                              }
+                              className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
+                            />
+                          </div>
 
-                    </div>
+                        </div>
 
-                  </div>
+                        <div>
+                          <label className="mb-3 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]">
+                            Your rating *
+                          </label>
 
-                  {/* TITLE */}
+                          <div className="flex items-center gap-2">
+                            {[1, 2, 3, 4, 5].map(
+                              (star) => {
+                                const active =
+                                  star <=
+                                  reviewRating;
 
-                  <div>
-                    <label
-                      htmlFor="review-title"
-                      className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
-                    >
-                      Review title
-                      <span className="ml-1 normal-case tracking-normal text-[#aaa9a1]">
-                        (optional)
-                      </span>
-                    </label>
+                                return (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() =>
+                                      setReviewRating(
+                                        star
+                                      )
+                                    }
+                                    disabled={
+                                      reviewSubmitting
+                                    }
+                                    aria-label={`Rate ${star} out of 5`}
+                                    className="rounded-full p-1 text-[#315c45] transition-transform hover:scale-110 disabled:opacity-50"
+                                  >
+                                    <Star
+                                      size={25}
+                                      strokeWidth={
+                                        1.5
+                                      }
+                                      fill={
+                                        active
+                                          ? "currentColor"
+                                          : "none"
+                                      }
+                                    />
+                                  </button>
+                                );
+                              }
+                            )}
 
-                    <input
-                      id="review-title"
-                      type="text"
-                      value={reviewTitle}
-                      onChange={(event) =>
-                        setReviewTitle(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Give your review a short title"
-                      maxLength={150}
-                      disabled={
-                        reviewSubmitting
-                      }
-                      className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
-                    />
-                  </div>
+                            <span className="ml-2 text-xs font-semibold text-[#747970]">
+                              {reviewRating}/5
+                            </span>
+                          </div>
+                        </div>
 
-                  {/* COMMENT */}
+                        <div>
+                          <label
+                            htmlFor="review-title"
+                            className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
+                          >
+                            Review title
+                            <span className="ml-1 normal-case tracking-normal text-[#aaa9a1]">
+                              (optional)
+                            </span>
+                          </label>
 
-                  <div>
-                    <label
-                      htmlFor="review-comment"
-                      className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
-                    >
-                      Your review *
-                    </label>
-
-                    <textarea
-                      id="review-comment"
-                      value={reviewComment}
-                      onChange={(event) =>
-                        setReviewComment(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Tell us about your experience..."
-                      maxLength={2000}
-                      rows={6}
-                      disabled={
-                        reviewSubmitting
-                      }
-                      className="w-full resize-none rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 py-3.5 text-sm leading-7 text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
-                    />
-
-                    <div className="mt-2 flex justify-end">
-                      <span className="text-[9px] text-[#aaa9a1]">
-                        {reviewComment.length}/2000
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SUBMIT */}
-
-                  <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
-
-                    <button
-                      type="submit"
-                      disabled={
-                        reviewSubmitting
-                      }
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-[#315c45] px-6 text-xs font-bold text-white shadow-[0_12px_30px_rgba(49,92,69,0.15)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {reviewSubmitting ? (
-                        <>
-                          <Loader2
-                            size={15}
-                            className="animate-spin"
+                          <input
+                            id="review-title"
+                            type="text"
+                            value={reviewTitle}
+                            onChange={(event) =>
+                              setReviewTitle(
+                                event.target.value
+                              )
+                            }
+                            placeholder="Give your review a short title"
+                            maxLength={150}
+                            disabled={
+                              reviewSubmitting
+                            }
+                            className="h-12 w-full rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 text-sm text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
                           />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <Send size={15} />
-                          Submit Review
-                        </>
-                      )}
-                    </button>
+                        </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReviewForm(
-                          false
-                        );
-                        setReviewError("");
-                      }}
-                      disabled={
-                        reviewSubmitting
-                      }
-                      className="h-12 rounded-[14px] border border-[#d7d4ca] bg-white px-6 text-xs font-bold text-[#315c45] transition hover:bg-[#f5f4ee] disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
+                        <div>
+                          <label
+                            htmlFor="review-comment"
+                            className="mb-2 block text-[9px] font-bold uppercase tracking-[0.14em] text-[#777d76]"
+                          >
+                            Your review *
+                          </label>
 
-                  </div>
+                          <textarea
+                            id="review-comment"
+                            value={reviewComment}
+                            onChange={(event) =>
+                              setReviewComment(
+                                event.target.value
+                              )
+                            }
+                            placeholder="Tell us about your experience..."
+                            maxLength={2000}
+                            rows={6}
+                            disabled={
+                              reviewSubmitting
+                            }
+                            className="w-full resize-none rounded-[14px] border border-[#dcd9cf] bg-[#faf9f5] px-4 py-3.5 text-sm leading-7 text-[#234636] outline-none transition placeholder:text-[#aaa9a1] focus:border-[#315c45] focus:bg-white"
+                          />
 
-                </form>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                          <div className="mt-2 flex justify-end">
+                            <span className="text-[9px] text-[#aaa9a1]">
+                              {reviewComment.length}/2000
+                            </span>
+                          </div>
+                        </div>
 
-        {/* =================================================
-            PUBLISHED REVIEWS
-        ================================================= */}
+                        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
 
-        {product.reviews?.length > 0 ? (
-          <div className="border-t border-[#dedad0]">
+                          <button
+                            type="submit"
+                            disabled={
+                              reviewSubmitting
+                            }
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-[#315c45] px-6 text-xs font-bold text-white shadow-[0_12px_30px_rgba(49,92,69,0.15)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {reviewSubmitting ? (
+                              <>
+                                <Loader2
+                                  size={15}
+                                  className="animate-spin"
+                                />
+                                Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <Send size={15} />
+                                Submit Review
+                              </>
+                            )}
+                          </button>
 
-            {product.reviews.map(
-              (review, index) => (
-                <motion.article
-                  key={review.id}
-                  initial={{
-                    opacity: 0,
-                    y: 15,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  viewport={{
-                    once: true,
-                  }}
-                  transition={{
-                    duration: 0.45,
-                    delay:
-                      index * 0.05,
-                  }}
-                  className="border-b border-[#dedad0] py-8"
-                >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowReviewForm(
+                                false
+                              );
+                              setReviewError("");
+                            }}
+                            disabled={
+                              reviewSubmitting
+                            }
+                            className="h-12 rounded-[14px] border border-[#d7d4ca] bg-white px-6 text-xs font-bold text-[#315c45] transition hover:bg-[#f5f4ee] disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
 
-                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-
-                    <div>
-                      <Stars
-                        rating={
-                          review.rating
-                        }
-                        size={14}
-                      />
-
-                      {review.title && (
-                        <h3 className="mt-3 text-base font-bold text-[#234636]">
-                          {review.title}
-                        </h3>
-                      )}
+                        </div>
+                      </form>
                     </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                    <time className="text-[9px] font-medium uppercase tracking-[0.1em] text-[#999d94]">
-                      {review.date}
-                    </time>
+              {product.reviews?.length > 0 ? (
+                <div className="border-t border-[#dedad0]">
 
-                  </div>
+                  {product.reviews.map(
+                    (review, index) => (
+                      <motion.article
+                        key={review.id}
+                        initial={{
+                          opacity: 0,
+                          y: 15,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                        }}
+                        transition={{
+                          duration: 0.45,
+                          delay:
+                            index * 0.05,
+                        }}
+                        className="border-b border-[#dedad0] py-8"
+                      >
 
-                  <p className="mt-4 max-w-[760px] text-sm leading-8 text-[#687068]">
-                    {review.text}
-                  </p>
+                        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                          <div>
+                            <Stars
+                              rating={
+                                review.rating
+                              }
+                              size={14}
+                            />
 
-                  <div className="mt-6 flex items-center gap-3">
+                            {review.title && (
+                              <h3 className="mt-3 text-base font-bold text-[#234636]">
+                                {review.title}
+                              </h3>
+                            )}
+                          </div>
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4eee3] font-serif text-sm font-medium text-[#315c45]">
-                      {review.name
-                        .charAt(0)
-                        .toUpperCase()}
-                    </div>
+                          <time className="text-[9px] font-medium uppercase tracking-[0.1em] text-[#999d94]">
+                            {review.date}
+                          </time>
+                        </div>
 
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-
-                        <p className="text-xs font-bold text-[#234636]">
-                          {review.name}
+                        <p className="mt-4 max-w-[760px] text-sm leading-8 text-[#687068]">
+                          {review.text}
                         </p>
 
-                        {review.isVerifiedPurchase && (
-                          <span className="rounded-full bg-[#e4eee3] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[#315c45]">
-                            Verified purchase
-                          </span>
+                        <div className="mt-6 flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e4eee3] font-serif text-sm font-medium text-[#315c45]">
+                            {review.name
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-bold text-[#234636]">
+                                {review.name}
+                              </p>
+
+                              {review.isVerifiedPurchase && (
+                                <span className="rounded-full bg-[#e4eee3] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[#315c45]">
+                                  Verified purchase
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-0.5 text-[9px] text-[#969990]">
+                              Customer review
+                            </p>
+                          </div>
+                        </div>
+
+                        {review.adminReply && (
+                          <div className="mt-6 rounded-[17px] border border-[#dce5d9] bg-white p-5 sm:ml-12">
+                            <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#315c45]">
+                              Response from Seedra
+                            </p>
+
+                            <p className="mt-2 text-sm leading-7 text-[#687068]">
+                              {
+                                review
+                                  .adminReply
+                                  .message
+                              }
+                            </p>
+                          </div>
                         )}
 
-                      </div>
-
-                      <p className="mt-0.5 text-[9px] text-[#969990]">
-                        Customer review
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* ADMIN REPLY */}
-
-                  {review.adminReply && (
-                    <div className="mt-6 rounded-[17px] border border-[#dce5d9] bg-white p-5 sm:ml-12">
-
-                      <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#315c45]">
-                        Response from Seedra
-                      </p>
-
-                      <p className="mt-2 text-sm leading-7 text-[#687068]">
-                        {
-                          review
-                            .adminReply
-                            .message
-                        }
-                      </p>
-
-                    </div>
+                      </motion.article>
+                    )
                   )}
 
-                </motion.article>
-              )
-            )}
+                </div>
+              ) : (
+                <div className="rounded-[24px] border border-[#ddd9ce] bg-white p-8 sm:p-10">
 
-          </div>
-        ) : (
-          <div className="rounded-[24px] border border-[#ddd9ce] bg-white p-8 sm:p-10">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#edf3e9] text-[#315c45]">
+                    <Star size={19} />
+                  </div>
 
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#edf3e9] text-[#315c45]">
-              <Star size={19} />
+                  <h3 className="mt-5 font-serif text-2xl text-[#234636]">
+                    Be the first to review
+                  </h3>
+
+                  <p className="mt-3 max-w-[500px] text-sm leading-7 text-[#747970]">
+                    This product does not have any
+                    published customer reviews yet.
+                    Be the first to share your
+                    experience.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReviewForm(true);
+
+                      window.setTimeout(() => {
+                        document
+                          .getElementById(
+                            "reviews"
+                          )
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                      }, 50);
+                    }}
+                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#315c45] px-5 py-2.5 text-xs font-bold text-[#315c45] transition hover:bg-[#edf3e9]"
+                  >
+                    <Star size={14} />
+                    Write the first review
+                  </button>
+
+                </div>
+              )}
+
             </div>
-
-            <h3 className="mt-5 font-serif text-2xl text-[#234636]">
-              Be the first to review
-            </h3>
-
-            <p className="mt-3 max-w-[500px] text-sm leading-7 text-[#747970]">
-              This product does not have any
-              published customer reviews yet.
-              Be the first to share your
-              experience.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowReviewForm(true);
-
-                window.setTimeout(() => {
-                  document
-                    .getElementById(
-                      "reviews"
-                    )
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                }, 50);
-              }}
-              className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#315c45] px-5 py-2.5 text-xs font-bold text-[#315c45] transition hover:bg-[#edf3e9]"
-            >
-              <Star size={14} />
-              Write the first review
-            </button>
-
           </div>
-        )}
+        </div>
+      </section>
 
-      </div>
-    </div>
-  </div>
-</section>
+      {/* RELATED */}
 
-      {/* ===================================================
-          RELATED
-      =================================================== */}
-
-      {relatedProducts?.length >
-        0 && (
+      {relatedProducts?.length > 0 && (
         <section className="bg-white">
           <div className="mx-auto max-w-[1280px] px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
 
@@ -2693,9 +2566,7 @@ const createCartItem = () => {
                 className="inline-flex items-center gap-2 text-xs font-bold text-[#315c45]"
               >
                 View all products
-                <ArrowRight
-                  size={15}
-                />
+                <ArrowRight size={15} />
               </Link>
             </div>
 
@@ -2713,9 +2584,7 @@ const createCartItem = () => {
         </section>
       )}
 
-      {/* ===================================================
-          MOBILE STICKY CART
-      =================================================== */}
+      {/* MOBILE STICKY CART */}
 
       <div className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#dedad0] bg-white/95 p-3 shadow-[0_-15px_40px_rgba(35,70,54,0.1)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-[650px] items-center gap-3">
@@ -2755,9 +2624,7 @@ const createCartItem = () => {
               </>
             ) : (
               <>
-                <ShoppingBag
-                  size={15}
-                />
+                <ShoppingBag size={15} />
                 Add to Cart
               </>
             )}

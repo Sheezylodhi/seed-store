@@ -363,85 +363,98 @@ export default function BestSellers() {
   ADD TO CART
   ===================================================== */
 
-  function handleAddToCart(
-    product: Product
-  ) {
-    if (product.stock <= 0) {
-      return;
-    }
-
-    const activeVariant =
-      product.variants?.find(
-        (variant) =>
-          variant.isActive !== false &&
-          (variant.stock ?? 0) > 0
-      ) ??
-      product.variants?.find(
-        (variant) =>
-          variant.isActive !== false
-      );
-
-    const packSize =
-      activeVariant?.packSize ||
-      "Standard";
-
-    const cartPrice =
-      activeVariant?.price &&
-      activeVariant.price > 0
-        ? activeVariant.price
-        : product.price;
-
-    const cartOldPrice =
-      activeVariant?.compareAtPrice &&
-      activeVariant.compareAtPrice >
-        cartPrice
-        ? activeVariant.compareAtPrice
-        : product.compareAtPrice &&
-          product.compareAtPrice >
-            cartPrice
-        ? product.compareAtPrice
-        : undefined;
-
-    addToCart({
-      id: product.id,
-      slug: product.slug,
-      name: product.name,
-      image: product.image,
-      productType:
-        product.productType ||
-        "Seed Product",
-      packSize,
-      price: cartPrice,
-      oldPrice: cartOldPrice,
-      quantity: 1,
-
-      /* =================================================
-         DELIVERY
-      ================================================= */
-
-      deliveryType:
-        product.deliveryType === "paid"
-          ? "paid"
-          : "free",
-
-      deliveryCharge:
-        product.deliveryType === "paid"
-          ? Number(product.deliveryCharge) || 0
-          : 0,
-    });
-
-    setAddedProductId(product.id);
-
-    openCart();
-
-    window.setTimeout(() => {
-      setAddedProductId((current) =>
-        current === product.id
-          ? null
-          : current
-      );
-    }, 1400);
+  function handleAddToCart(product: Product) {
+  if (product.stock <= 0) {
+    return;
   }
+
+  const activeVariant =
+    product.variants?.find(
+      (variant) =>
+        variant.isActive !== false &&
+        (variant.stock ?? 0) > 0
+    ) ??
+    product.variants?.find(
+      (variant) =>
+        variant.isActive !== false
+    );
+
+  const packSize =
+    activeVariant?.packSize ||
+    "Standard";
+
+  const cartPrice =
+    typeof activeVariant?.price === "number" &&
+    activeVariant.price > 0
+      ? activeVariant.price
+      : product.price;
+
+  const cartOldPrice =
+    typeof activeVariant?.compareAtPrice ===
+      "number" &&
+    activeVariant.compareAtPrice > cartPrice
+      ? activeVariant.compareAtPrice
+      : typeof product.compareAtPrice ===
+          "number" &&
+        product.compareAtPrice > cartPrice
+      ? product.compareAtPrice
+      : undefined;
+
+  addToCart({
+    // Unique cart item ID
+    id: activeVariant?.id
+      ? `${product.id}-${activeVariant.id}`
+      : product.id,
+
+    // Actual MongoDB Product ID
+    productId: product.id,
+
+    // Selected MongoDB Variant ID
+    variantId: activeVariant?.id || null,
+
+    slug: product.slug,
+    name: product.name,
+    image: product.image,
+
+    productType:
+      product.productType ||
+      "Seed Product",
+
+    packSize,
+
+    price: cartPrice,
+
+    oldPrice: cartOldPrice,
+
+    quantity: 1,
+
+    /* =================================================
+       DELIVERY
+    ================================================= */
+
+    deliveryType:
+      product.deliveryType === "paid"
+        ? "paid"
+        : "free",
+
+    deliveryCharge:
+      product.deliveryType === "paid"
+        ? Number(product.deliveryCharge) || 0
+        : 0,
+  });
+
+  setAddedProductId(product.id);
+
+  openCart();
+
+  window.setTimeout(() => {
+    setAddedProductId((current) =>
+      current === product.id
+        ? null
+        : current
+    );
+  }, 1400);
+}
 
   /* =====================================================
   LOADING

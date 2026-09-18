@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -64,14 +65,122 @@ const CartContext = createContext<
 
 const STORAGE_KEY = "seed-store-cart";
 
+/*
+ * MongoDB ObjectId format.
+ */
+const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
+
+/*
+ * Normalize old and new cart items.
+ *
+ * Important:
+ * Checkout API needs:
+ *
+ * productId
+ * variantId
+ *
+ * Older cart items may only have:
+ *
+ * id = productId
+ *
+ * or:
+ *
+ * id = productId-variantId
+ */
+function normalizeCartItem(item: any): CartItem {
+  let productId =
+    typeof item?.productId === "string"
+      ? item.productId
+      : "";
+
+  let variantId =
+    typeof item?.variantId === "string"
+      ? item.variantId
+      : null;
+
+  /*
+   * Recover productId / variantId
+   * from old cart item's id.
+   */
+  if (
+    !productId &&
+    typeof item?.id === "string"
+  ) {
+    const parts = item.id.split("-");
+
+    /*
+     * Variant cart item:
+     *
+     * productId-variantId
+     */
+    if (
+      parts.length === 2 &&
+      MONGO_ID_REGEX.test(parts[0]) &&
+      MONGO_ID_REGEX.test(parts[1])
+    ) {
+      productId = parts[0];
+
+      if (!variantId) {
+        variantId = parts[1];
+      }
+    }
+
+    /*
+     * Normal product cart item:
+     *
+     * productId
+     */
+    if (
+      !productId &&
+      MONGO_ID_REGEX.test(item.id)
+    ) {
+      productId = item.id;
+    }
+  }
+
+  return {
+    ...item,
+
+    /*
+     * This is the important field
+     * required by /api/orders.
+     */
+    productId,
+
+    /*
+     * Keep variant ID when available.
+     */
+    variantId,
+
+    /*
+     * Normalize delivery settings.
+     */
+    deliveryType:
+      item?.deliveryType === "paid"
+        ? "paid"
+        : "free",
+
+    deliveryCharge:
+      item?.deliveryType === "paid"
+        ? Number(item?.deliveryCharge) || 0
+        : 0,
+  };
+}
+
 export function CartProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [items, setItems] = useState<CartItem[]>(
+    []
+  );
+
+  const [hydrated, setHydrated] =
+    useState(false);
+
+  const [isCartOpen, setIsCartOpen] =
+    useState(false);
 
   const [coupon, setCoupon] =
     useState<CartCoupon | null>(null);
@@ -87,9 +196,6 @@ export function CartProvider({
 
   /*
    * Load cart from localStorage.
-   *
-   * Older carts may not have delivery fields,
-   * so we normalize them here.
    */
   useEffect(() => {
     try {
@@ -97,27 +203,14 @@ export function CartProvider({
         localStorage.getItem(STORAGE_KEY);
 
       if (storedCart) {
-        const parsedCart = JSON.parse(
-          storedCart
-        );
+        const parsedCart =
+          JSON.parse(storedCart);
 
         if (Array.isArray(parsedCart)) {
           const normalizedCart: CartItem[] =
-            parsedCart.map((item) => ({
-              ...item,
-
-              deliveryType:
-                item.deliveryType === "paid"
-                  ? "paid"
-                  : "free",
-
-              deliveryCharge:
-                item.deliveryType === "paid"
-                  ? Number(
-                      item.deliveryCharge
-                    ) || 0
-                  : 0,
-            }));
+            parsedCart.map(
+              normalizeCartItem
+            );
 
           setItems(normalizedCart);
         }
@@ -157,6 +250,29 @@ export function CartProvider({
   const addToCart = (
     item: AddToCartItem
   ) => {
+    const normalizedItem =
+      normalizeCartItem(item);
+
+    /*
+     * Safety check.
+     *
+     * A product must have a valid
+     * MongoDB product ID.
+     */
+    if (
+      !normalizedItem.productId ||
+      !MONGO_ID_REGEX.test(
+        normalizedItem.productId
+      )
+    ) {
+      console.error(
+        "Cannot add cart item: missing or invalid productId",
+        item
+      );
+
+      return;
+    }
+
     setItems((currentItems) => {
       const quantityToAdd =
         item.quantity ?? 1;
@@ -164,34 +280,47 @@ export function CartProvider({
       const existingItem =
         currentItems.find(
           (cartItem) =>
-            cartItem.id === item.id
+            cartItem.id ===
+            normalizedItem.id
         );
 
       if (existingItem) {
         return currentItems.map(
           (cartItem) =>
-            cartItem.id === item.id
+            cartItem.id ===
+            normalizedItem.id
               ? {
                   ...cartItem,
+
+                  /*
+                   * Always keep the latest
+                   * product/variant IDs.
+                   */
+                  productId:
+                    normalizedItem.productId,
+
+                  variantId:
+                    normalizedItem.variantId,
+
                   quantity:
                     cartItem.quantity +
                     quantityToAdd,
 
                   /*
                    * Refresh delivery settings
-                   * from the latest product data.
+                   * from latest product data.
                    */
                   deliveryType:
-                    item.deliveryType ===
+                    normalizedItem.deliveryType ===
                     "paid"
                       ? "paid"
                       : "free",
 
                   deliveryCharge:
-                    item.deliveryType ===
+                    normalizedItem.deliveryType ===
                     "paid"
                       ? Number(
-                          item.deliveryCharge
+                          normalizedItem.deliveryCharge
                         ) || 0
                       : 0,
                 }
@@ -202,17 +331,25 @@ export function CartProvider({
       return [
         ...currentItems,
         {
-          ...item,
+          ...normalizedItem,
+
+          productId:
+            normalizedItem.productId,
+
+          variantId:
+            normalizedItem.variantId,
 
           deliveryType:
-            item.deliveryType === "paid"
+            normalizedItem.deliveryType ===
+            "paid"
               ? "paid"
               : "free",
 
           deliveryCharge:
-            item.deliveryType === "paid"
+            normalizedItem.deliveryType ===
+            "paid"
               ? Number(
-                  item.deliveryCharge
+                  normalizedItem.deliveryCharge
                 ) || 0
               : 0,
 
@@ -361,19 +498,13 @@ export function CartProvider({
   }, [items]);
 
   /*
-   * Calculate delivery charge from
-   * product-level database settings.
+   * Calculate delivery charge.
    *
-   * Rules:
+   * If all products are free:
+   *      Rs. 0
    *
-   * All products free
-   *    -> Free
-   *
-   * One or more products paid
-   *    -> Highest configured delivery charge
-   *
-   * We intentionally do NOT use the old
-   * Rs. 5000 free-delivery threshold.
+   * If one or more products are paid:
+   *      highest configured delivery charge
    */
   const deliveryCharge = useMemo(() => {
     if (items.length === 0) {
@@ -617,3 +748,4 @@ export function useCart() {
 
   return context;
 }
+

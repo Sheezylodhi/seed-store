@@ -1,5 +1,11 @@
 export type CartItem = {
   id: string;
+    // Actual MongoDB Product ID
+  productId: string;
+
+  // Selected product variant ID, if applicable
+  variantId?: string | null;
+  
   slug: string;
   name: string;
   image: string;

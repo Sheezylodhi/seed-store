@@ -1407,65 +1407,71 @@ function ProductCard({
   ========================================================= */
 
   function handleAddToCart() {
-    if (isOutOfStock) {
-      return;
-    }
-
-    const purchasableVariant =
-      selectedVariant &&
-      selectedVariant.stock > 0
-        ? selectedVariant
-        : activeVariants.find(
-            (variant) =>
-              variant.stock > 0
-          );
-
-    if (
-      activeVariants.length > 0 &&
-      !purchasableVariant
-    ) {
-      return;
-    }
-
-addToCart({
-  id: product.id,
-  name: product.name,
-  slug: product.slug,
-
-  price:
-    purchasableVariant?.price ??
-    product.price,
-
-  image:
-    product.image ||
-    product.images?.[0] ||
-    "",
-
-  quantity: 1,
-
-  productType:
-    product.type,
-
-  packSize:
-    purchasableVariant?.packSize || "",
-
-  deliveryType:
-    product.deliveryType === "paid"
-      ? "paid"
-      : "free",
-
-  deliveryCharge:
-    product.deliveryType === "paid"
-      ? Number(product.deliveryCharge) || 0
-      : 0,
-});
-
-    /* =======================================================
-       OPEN CART DRAWER AFTER ADDING
-    ======================================================= */
-
-    openCart();
+  if (isOutOfStock) {
+    return;
   }
+
+  const purchasableVariant =
+    selectedVariant &&
+    selectedVariant.stock > 0
+      ? selectedVariant
+      : activeVariants.find(
+          (variant) => variant.stock > 0
+        );
+
+  if (
+    activeVariants.length > 0 &&
+    !purchasableVariant
+  ) {
+    return;
+  }
+
+  addToCart({
+    // Cart item unique ID
+    id: purchasableVariant
+      ? `${product.id}-${purchasableVariant.id}`
+      : product.id,
+
+    // Actual MongoDB Product ID
+    productId: product.id,
+
+    // Actual MongoDB Variant ID
+    variantId:
+      purchasableVariant?.id || null,
+
+    name: product.name,
+    slug: product.slug,
+
+    price:
+      purchasableVariant?.price ??
+      product.price,
+
+    image:
+      product.image ||
+      product.images?.[0] ||
+      "",
+
+    quantity: 1,
+
+    productType: product.type,
+
+    packSize:
+      purchasableVariant?.packSize || "",
+
+    deliveryType:
+      product.deliveryType === "paid"
+        ? "paid"
+        : "free",
+
+    deliveryCharge:
+      product.deliveryType === "paid"
+        ? Number(product.deliveryCharge) || 0
+        : 0,
+  });
+
+  /* Open cart drawer after adding */
+  openCart();
+}
 
   const image =
     product.image ||

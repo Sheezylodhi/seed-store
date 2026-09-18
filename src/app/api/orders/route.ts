@@ -28,18 +28,15 @@ const allowedPaymentMethods: PaymentMethod[] = [
 ];
 
 type IncomingItem = {
-  id: string;
+  id?: string;
+  productId: string;
+  variantId?: string | null;
   quantity: number;
   packSize?: string;
 };
 
-function cleanString(
-  value: FormDataEntryValue | null
-) {
-  if (
-    value === null ||
-    typeof value !== "string"
-  ) {
+function cleanString(value: FormDataEntryValue | null) {
+  if (value === null || typeof value !== "string") {
     return "";
   }
 
@@ -52,45 +49,28 @@ function calculateCouponDiscount(
 ) {
   let discount = 0;
 
-  if (
-    coupon.discountType === "percentage"
-  ) {
+  if (coupon.discountType === "percentage") {
     discount =
-      (subtotal *
-        Number(coupon.discountValue)) /
-      100;
+      (subtotal * Number(coupon.discountValue)) / 100;
 
     if (
-      coupon.maximumDiscountAmount !==
-        undefined &&
+      coupon.maximumDiscountAmount !== undefined &&
       coupon.maximumDiscountAmount !== null
     ) {
       discount = Math.min(
         discount,
-        Number(
-          coupon.maximumDiscountAmount
-        )
+        Number(coupon.maximumDiscountAmount)
       );
     }
   }
 
-  if (
-    coupon.discountType === "fixed"
-  ) {
-    discount = Number(
-      coupon.discountValue
-    );
+  if (coupon.discountType === "fixed") {
+    discount = Number(coupon.discountValue);
   }
 
-  discount = Math.min(
-    discount,
-    subtotal
-  );
+  discount = Math.min(discount, subtotal);
 
-  return Math.max(
-    Math.round(discount),
-    0
-  );
+  return Math.max(Math.round(discount), 0);
 }
 
 /*
@@ -108,9 +88,7 @@ function calculateCouponDiscount(
 |
 */
 
-function getProductDeliveryCharge(
-  product: any
-) {
+function getProductDeliveryCharge(product: any) {
   const deliveryType =
     product?.deliveryType === "paid"
       ? "paid"
@@ -120,14 +98,9 @@ function getProductDeliveryCharge(
     return 0;
   }
 
-  const charge = Number(
-    product?.deliveryCharge
-  );
+  const charge = Number(product?.deliveryCharge);
 
-  if (
-    !Number.isFinite(charge) ||
-    charge < 0
-  ) {
+  if (!Number.isFinite(charge) || charge < 0) {
     return 0;
   }
 
@@ -140,15 +113,9 @@ function getProductDeliveryCharge(
 |--------------------------------------------------------------------------
 */
 
-async function uploadPaymentScreenshot(
-  file: File
-) {
-  const arrayBuffer =
-    await file.arrayBuffer();
-
-  const buffer = Buffer.from(
-    arrayBuffer
-  );
+async function uploadPaymentScreenshot(file: File) {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
   return new Promise<{
     secure_url: string;
@@ -157,8 +124,7 @@ async function uploadPaymentScreenshot(
     const uploadStream =
       cloudinary.uploader.upload_stream(
         {
-          folder:
-            "seedra/payment-proofs",
+          folder: "seedra/payment-proofs",
           resource_type: "image",
         },
         (error, result) => {
@@ -176,15 +142,12 @@ async function uploadPaymentScreenshot(
                 "Cloudinary upload failed"
               )
             );
-
             return;
           }
 
           resolve({
-            secure_url:
-              result.secure_url,
-            public_id:
-              result.public_id,
+            secure_url: result.secure_url,
+            public_id: result.public_id,
           });
         }
       );
@@ -199,14 +162,11 @@ async function uploadPaymentScreenshot(
 |--------------------------------------------------------------------------
 */
 
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
-    const formData =
-      await request.formData();
+    const formData = await request.formData();
 
     /*
     |--------------------------------------------------------------------------
@@ -221,60 +181,45 @@ export async function POST(
     try {
       customerInfo = JSON.parse(
         String(
-          formData.get(
-            "customerInfo"
-          ) || "{}"
+          formData.get("customerInfo") || "{}"
         )
       );
 
       shippingAddress = JSON.parse(
         String(
-          formData.get(
-            "shippingAddress"
-          ) || "{}"
+          formData.get("shippingAddress") || "{}"
         )
       );
 
       items = JSON.parse(
         String(
-          formData.get("items") ||
-            "[]"
+          formData.get("items") || "[]"
         )
       );
     } catch {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Invalid checkout data.",
+          message: "Invalid checkout data.",
         },
         { status: 400 }
       );
     }
 
-    const paymentMethod =
-      String(
-        formData.get(
-          "paymentMethod"
-        ) || "cod"
-      ) as PaymentMethod;
+    const paymentMethod = String(
+      formData.get("paymentMethod") || "cod"
+    ) as PaymentMethod;
 
-    const couponCode =
-      cleanString(
-        formData.get(
-          "couponCode"
-        )
-      ).toUpperCase();
+    const couponCode = cleanString(
+      formData.get("couponCode")
+    ).toUpperCase();
 
-    const notes =
-      cleanString(
-        formData.get("notes")
-      );
+    const notes = cleanString(
+      formData.get("notes")
+    );
 
     const paymentScreenshot =
-      formData.get(
-        "paymentScreenshot"
-      );
+      formData.get("paymentScreenshot");
 
     /*
     |--------------------------------------------------------------------------
@@ -290,8 +235,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Invalid payment method.",
+          message: "Invalid payment method.",
         },
         { status: 400 }
       );
@@ -324,9 +268,7 @@ export async function POST(
 
     if (
       !emailRegex.test(
-        String(
-          customerInfo.email
-        ).trim()
+        String(customerInfo.email).trim()
       )
     ) {
       return NextResponse.json(
@@ -372,8 +314,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Your cart is empty.",
+          message: "Your cart is empty.",
         },
         { status: 400 }
       );
@@ -385,9 +326,7 @@ export async function POST(
     |--------------------------------------------------------------------------
     */
 
-    if (
-      paymentMethod !== "cod"
-    ) {
+    if (paymentMethod !== "cod") {
       if (
         !paymentScreenshot ||
         !(paymentScreenshot instanceof File)
@@ -407,9 +346,7 @@ export async function POST(
           "image/jpeg",
           "image/png",
           "image/webp",
-        ].includes(
-          paymentScreenshot.type
-        )
+        ].includes(paymentScreenshot.type)
       ) {
         return NextResponse.json(
           {
@@ -450,13 +387,9 @@ export async function POST(
     |--------------------------------------------------------------------------
     | DELIVERY CALCULATION
     |--------------------------------------------------------------------------
-    |
-    | We calculate this from MongoDB product data.
-    |
     */
 
-    const productDeliveryCharges: number[] =
-      [];
+    const productDeliveryCharges: number[] = [];
 
     for (const item of items) {
       /*
@@ -466,16 +399,15 @@ export async function POST(
       */
 
       if (
-        !item?.id ||
+        !item?.productId ||
         !mongoose.Types.ObjectId.isValid(
-          item.id
+          item.productId
         )
       ) {
         return NextResponse.json(
           {
             success: false,
-            message:
-              "Invalid product.",
+            message: "Invalid product.",
           },
           { status: 400 }
         );
@@ -487,8 +419,7 @@ export async function POST(
       |--------------------------------------------------------------------------
       */
 
-      const quantity =
-        Number(item.quantity);
+      const quantity = Number(item.quantity);
 
       if (
         !Number.isInteger(quantity) ||
@@ -510,10 +441,9 @@ export async function POST(
       |--------------------------------------------------------------------------
       */
 
-      const product =
-        await Product.findById(
-          item.id
-        );
+      const product = await Product.findById(
+        item.productId
+      );
 
       if (!product) {
         return NextResponse.json(
@@ -533,8 +463,7 @@ export async function POST(
       */
 
       if (
-        (product as any).isActive ===
-        false
+        (product as any).isActive === false
       ) {
         return NextResponse.json(
           {
@@ -549,19 +478,12 @@ export async function POST(
       |--------------------------------------------------------------------------
       | DELIVERY
       |--------------------------------------------------------------------------
-      |
-      | Read directly from database.
-      |
       */
 
       const productDeliveryCharge =
-        getProductDeliveryCharge(
-          product
-        );
+        getProductDeliveryCharge(product);
 
-      if (
-        productDeliveryCharge > 0
-      ) {
+      if (productDeliveryCharge > 0) {
         productDeliveryCharges.push(
           productDeliveryCharge
         );
@@ -577,24 +499,19 @@ export async function POST(
 
       let stock = 0;
 
-      let sku:
-        | string
-        | undefined;
+      let sku: string | undefined;
 
-      let packSize:
-        | string
-        | undefined;
+      let packSize: string | undefined;
 
       let variantId:
         | mongoose.Types.ObjectId
         | undefined;
 
-      const variants =
-        Array.isArray(
-          (product as any).variants
-        )
-          ? (product as any).variants
-          : [];
+      const variants = Array.isArray(
+        (product as any).variants
+      )
+        ? (product as any).variants
+        : [];
 
       /*
       |--------------------------------------------------------------------------
@@ -602,34 +519,42 @@ export async function POST(
       |--------------------------------------------------------------------------
       */
 
-      if (
-        variants.length > 0
-      ) {
-        const variant =
-          variants.find(
-            (v: any) =>
-              v.packSize ===
-              item.packSize
-          );
+      if (variants.length > 0) {
+        const variant = variants.find(
+          (v: any) => {
+            const matchesVariantId =
+              item.variantId &&
+              String(v._id) ===
+                String(item.variantId);
+
+            const matchesPackSize =
+              !item.variantId &&
+              v.packSize === item.packSize;
+
+            return (
+              matchesVariantId ||
+              matchesPackSize
+            );
+          }
+        );
 
         if (!variant) {
           return NextResponse.json(
             {
               success: false,
-              message: `${product.name} variant is no longer available.`,
+              message:
+                `${product.name} variant is no longer available.`,
             },
             { status: 400 }
           );
         }
 
-        if (
-          variant.isActive ===
-          false
-        ) {
+        if (variant.isActive === false) {
           return NextResponse.json(
             {
               success: false,
-              message: `${product.name} variant is no longer available.`,
+              message:
+                `${product.name} variant is no longer available.`,
             },
             { status: 400 }
           );
@@ -653,8 +578,7 @@ export async function POST(
           undefined;
 
         if (variant._id) {
-          variantId =
-            variant._id;
+          variantId = variant._id;
         }
       } else {
         /*
@@ -664,13 +588,11 @@ export async function POST(
         */
 
         price = Number(
-          (product as any).price ||
-            0
+          (product as any).price || 0
         );
 
         stock = Number(
-          (product as any).stock ||
-            0
+          (product as any).stock || 0
         );
 
         sku =
@@ -679,8 +601,7 @@ export async function POST(
 
         packSize =
           item.packSize ||
-          (product as any)
-            .packSize ||
+          (product as any).packSize ||
           undefined;
       }
 
@@ -697,7 +618,8 @@ export async function POST(
         return NextResponse.json(
           {
             success: false,
-            message: `Invalid price for ${product.name}.`,
+            message:
+              `Invalid price for ${product.name}.`,
           },
           { status: 400 }
         );
@@ -709,13 +631,12 @@ export async function POST(
       |--------------------------------------------------------------------------
       */
 
-      if (
-        stock < quantity
-      ) {
+      if (stock < quantity) {
         return NextResponse.json(
           {
             success: false,
-            message: `${product.name} does not have enough stock.`,
+            message:
+              `${product.name} does not have enough stock.`,
           },
           { status: 400 }
         );
@@ -739,13 +660,11 @@ export async function POST(
       */
 
       orderItems.push({
-        product:
-          product._id,
+        product: product._id,
 
         variantId,
 
-        name:
-          product.name,
+        name: product.name,
 
         packSize,
 
@@ -756,12 +675,9 @@ export async function POST(
         quantity,
 
         image:
-          (product as any)
-            .images?.[0]?.url ||
-          (product as any)
-            .images?.[0] ||
-          (product as any)
-            .image ||
+          (product as any).images?.[0]?.url ||
+          (product as any).images?.[0] ||
+          (product as any).image ||
           undefined,
       });
     }
@@ -800,8 +716,7 @@ export async function POST(
         );
       }
 
-      const now =
-        new Date();
+      const now = new Date();
 
       /*
       |--------------------------------------------------------------------------
@@ -811,9 +726,7 @@ export async function POST(
 
       if (
         coupon.expiresAt &&
-        new Date(
-          coupon.expiresAt
-        ) <= now
+        new Date(coupon.expiresAt) <= now
       ) {
         return NextResponse.json(
           {
@@ -832,10 +745,8 @@ export async function POST(
       */
 
       if (
-        coupon.usageLimit !==
-          undefined &&
-        coupon.usageLimit !==
-          null &&
+        coupon.usageLimit !== undefined &&
+        coupon.usageLimit !== null &&
         coupon.usedCount >=
           coupon.usageLimit
       ) {
@@ -858,15 +769,15 @@ export async function POST(
       if (
         coupon.minimumOrderAmount !==
           undefined &&
-        coupon.minimumOrderAmount !==
-          null &&
+        coupon.minimumOrderAmount !== null &&
         subtotal <
           coupon.minimumOrderAmount
       ) {
         return NextResponse.json(
           {
             success: false,
-            message: `This coupon requires a minimum order of PKR ${coupon.minimumOrderAmount.toLocaleString()}.`,
+            message:
+              `This coupon requires a minimum order of PKR ${coupon.minimumOrderAmount.toLocaleString()}.`,
           },
           { status: 400 }
         );
@@ -909,21 +820,10 @@ export async function POST(
     |
     | Highest paid product delivery charge wins.
     |
-    | Example:
-    |
-    | Product A = Free
-    | Product B = Rs. 250
-    | Product C = Rs. 350
-    |
-    | Final delivery = Rs. 350
-    |
-    | Quantity does NOT multiply delivery.
-    |
     */
 
     const deliveryCharge =
-      productDeliveryCharges.length >
-      0
+      productDeliveryCharges.length > 0
         ? Math.max(
             ...productDeliveryCharges
           )
@@ -1005,20 +905,16 @@ export async function POST(
         `SDR-${Date.now()
           .toString()
           .slice(-8)}-${Math.floor(
-          1000 +
-            Math.random() * 9000
+          1000 + Math.random() * 9000
         )}`;
 
       const exists =
         await Order.exists({
-          orderNumber:
-            candidate,
+          orderNumber: candidate,
         });
 
       if (!exists) {
-        orderNumber =
-          candidate;
-
+        orderNumber = candidate;
         break;
       }
     }
@@ -1099,8 +995,7 @@ export async function POST(
         billingAddressSameAsShipping:
           true,
 
-        items:
-          orderItems,
+        items: orderItems,
 
         subtotal,
 
@@ -1132,8 +1027,7 @@ export async function POST(
         paymentStatus:
           "pending",
 
-        ...(paymentMethod !==
-        "cod"
+        ...(paymentMethod !== "cod"
           ? {
               payment: {
                 gateway:
@@ -1176,9 +1070,18 @@ export async function POST(
     */
 
     for (const item of items) {
+      if (
+        !item.productId ||
+        !mongoose.Types.ObjectId.isValid(
+          item.productId
+        )
+      ) {
+        continue;
+      }
+
       const product =
         await Product.findById(
-          item.id
+          item.productId
         );
 
       if (!product) {
@@ -1192,14 +1095,25 @@ export async function POST(
           ? (product as any).variants
           : [];
 
-      if (
-        variants.length > 0
-      ) {
+      if (variants.length > 0) {
         const variant =
           variants.find(
-            (v: any) =>
-              v.packSize ===
-              item.packSize
+            (v: any) => {
+              const matchesVariantId =
+                item.variantId &&
+                String(v._id) ===
+                  String(item.variantId);
+
+              const matchesPackSize =
+                !item.variantId &&
+                v.packSize ===
+                  item.packSize;
+
+              return (
+                matchesVariantId ||
+                matchesPackSize
+              );
+            }
           );
 
         if (variant) {
@@ -1219,8 +1133,8 @@ export async function POST(
           Math.max(
             0,
             Number(
-              (product as any)
-                .stock || 0
+              (product as any).stock ||
+                0
             ) -
               Number(
                 item.quantity
@@ -1243,8 +1157,7 @@ export async function POST(
     if (appliedCoupon) {
       await Coupon.findOneAndUpdate(
         {
-          _id:
-            appliedCoupon.id,
+          _id: appliedCoupon.id,
 
           isActive: true,
 
@@ -1254,11 +1167,9 @@ export async function POST(
                 $exists: false,
               },
             },
-
             {
               usageLimit: null,
             },
-
             {
               $expr: {
                 $lt: [
@@ -1348,9 +1259,8 @@ export async function GET(
   try {
     await connectDB();
 
-    const {
-      searchParams,
-    } = new URL(request.url);
+    const { searchParams } =
+      new URL(request.url);
 
     const orderNumber =
       searchParams
@@ -1389,9 +1299,7 @@ export async function GET(
         success: true,
 
         order: {
-          id: String(
-            order._id
-          ),
+          id: String(order._id),
 
           orderNumber:
             order.orderNumber,
@@ -1510,8 +1418,7 @@ export async function GET(
 
           deliveryCharge:
             Number(
-              order.deliveryCharge ||
-                0
+              order.deliveryCharge || 0
             ),
 
           total:
@@ -1566,7 +1473,8 @@ export async function GET(
                       : undefined,
 
                   paidAt:
-                    order.payment.paidAt
+                    order.payment
+                      .paidAt
                       ? new Date(
                           order.payment
                             .paidAt

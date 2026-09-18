@@ -443,16 +443,18 @@ export default function CheckoutPage() {
       | The server will read the real delivery settings from MongoDB.
       */
 
-      body.append(
-        "items",
-        JSON.stringify(
-          items.map((item) => ({
-            id: item.id,
-            quantity: item.quantity,
-            packSize: item.packSize,
-          }))
-        )
-      );
+     body.append(
+  "items",
+  JSON.stringify(
+    items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      variantId: item.variantId || null,
+      quantity: item.quantity,
+      packSize: item.packSize,
+    }))
+  )
+);
 
       body.append(
         "paymentMethod",
