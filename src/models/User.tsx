@@ -1,4 +1,3 @@
-
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export type UserRole = "customer" | "admin";
@@ -6,7 +5,8 @@ export type UserRole = "customer" | "admin";
 export interface IUser extends Document {
   name: string;
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   phone?: string;
   role: UserRole;
   isActive: boolean;
@@ -37,11 +37,20 @@ const UserSchema = new Schema<IUser>(
       ],
     },
 
+    // Optional because Google-created users
+    // do not have a password initially.
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
       select: false,
+    },
+
+    // Google's unique user ID
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
     },
 
     phone: {
@@ -75,4 +84,3 @@ const User: Model<IUser> =
   mongoose.model<IUser>("User", UserSchema);
 
 export default User;
-
