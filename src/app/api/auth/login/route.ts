@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -22,14 +21,17 @@ const loginSchema = z.object({
 });
 
 /*
+ * ---------------------------------------------------------
  * Legacy password support
  *
- * Your older customer accounts may have passwords stored
- * using SHA-256 + PASSWORD_PEPPER instead of bcrypt.
+ * Older customer accounts may have passwords stored using:
  *
- * New passwords should use bcrypt.
+ * SHA-256(password + PASSWORD_PEPPER)
+ *
+ * New / reset passwords use bcrypt.
+ * ---------------------------------------------------------
  */
-function hashLegacyPassword(password: string) {
+function hashLegacyPassword(password: string): string {
   const pepper = process.env.PASSWORD_PEPPER || "";
 
   return crypto
@@ -60,14 +62,16 @@ export async function POST(request: Request) {
 
     /*
      * Password is select:false in the User model,
-     * therefore we explicitly include it here.
+     * therefore explicitly include it.
      */
     const user = await User.findOne({
       email,
     }).select("+password");
 
     /*
-     * Same error for non-existing email and wrong password.
+     * Same generic error for:
+     * - account not found
+     * - wrong password
      */
     if (!user) {
       return NextResponse.json(
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     /*
-     * Do not allow disabled accounts to login.
+     * Disabled accounts cannot login.
      */
     if (!user.isActive) {
       return NextResponse.json(
@@ -94,42 +98,74 @@ export async function POST(request: Request) {
 
     /*
      * ---------------------------------------------------------
-     * 1. Try normal bcrypt password verification.
+     * PASSWORD CHECK
+     * ---------------------------------------------------------
+     *
+     * Google-created users may not have a password.
+     *
+     * Therefore we MUST check that password exists before
+     * passing it to bcrypt.compare().
+     *
+     * This also fixes the Vercel TypeScript error caused by:
+     *
+     * user.password
+     *
+     * being typed as string | undefined.
      * ---------------------------------------------------------
      */
+
     let passwordMatch = false;
 
-    try {
-      passwordMatch = await bcrypt.compare(
-        password,
-        user.password
-      );
-    } catch {
-      passwordMatch = false;
+    if (
+      typeof user.password === "string" &&
+      user.password.length > 0
+    ) {
+      try {
+        passwordMatch = await bcrypt.compare(
+          password,
+          user.password
+        );
+      } catch (error) {
+        console.error(
+          "BCRYPT_COMPARE_ERROR:",
+          error
+        );
+
+        passwordMatch = false;
+      }
     }
 
     /*
      * ---------------------------------------------------------
-     * 2. Legacy SHA-256 password support.
+     * LEGACY SHA-256 PASSWORD SUPPORT
+     * ---------------------------------------------------------
      *
-     * This allows older customer accounts to login if their
-     * password was created using the old SHA-256 + pepper flow.
+     * If bcrypt didn't match, check the old SHA-256
+     * + PASSWORD_PEPPER password format.
      * ---------------------------------------------------------
      */
+
     let usedLegacyPassword = false;
 
     if (!passwordMatch) {
-      const legacyHash = hashLegacyPassword(password);
+      const legacyHash =
+        hashLegacyPassword(password);
 
-      if (legacyHash === user.password) {
+      if (
+        typeof user.password === "string" &&
+        legacyHash === user.password
+      ) {
         passwordMatch = true;
         usedLegacyPassword = true;
       }
     }
 
     /*
-     * Password is incorrect.
+     * ---------------------------------------------------------
+     * PASSWORD INVALID
+     * ---------------------------------------------------------
      */
+
     if (!passwordMatch) {
       return NextResponse.json(
         {
@@ -142,19 +178,19 @@ export async function POST(request: Request) {
 
     /*
      * ---------------------------------------------------------
-     * 3. Automatically upgrade legacy password to bcrypt.
+     * UPGRADE LEGACY PASSWORD TO BCRYPT
+     * ---------------------------------------------------------
      *
-     * After the customer's first successful login, their old
-     * SHA-256 password is replaced with a bcrypt hash.
+     * Once an old account successfully logs in,
+     * replace its legacy SHA-256 password with bcrypt.
      *
-     * Next login will use bcrypt normally.
+     * Future logins will use bcrypt directly.
      * ---------------------------------------------------------
      */
+
     if (usedLegacyPassword) {
-      const newPasswordHash = await bcrypt.hash(
-        password,
-        12
-      );
+      const newPasswordHash =
+        await bcrypt.hash(password, 12);
 
       await User.updateOne(
         {
@@ -170,14 +206,10 @@ export async function POST(request: Request) {
 
     /*
      * ---------------------------------------------------------
-     * 4. Create secure database-backed session.
+     * CREATE SECURE DATABASE-BACKED SESSION
      * ---------------------------------------------------------
-     *
-     * The actual session token is stored in an httpOnly cookie
-     * by createSession().
-     *
-     * The browser never receives the raw session token.
      */
+
     await createSession(
       user._id.toString(),
       request
@@ -185,13 +217,14 @@ export async function POST(request: Request) {
 
     /*
      * ---------------------------------------------------------
-     * 5. Return authenticated user information.
+     * RETURN AUTHENTICATED USER
+     * ---------------------------------------------------------
      *
-     * IMPORTANT:
-     * The role comes from MongoDB.
-     * The client cannot choose or modify it.
+     * Role always comes from MongoDB.
+     * The client cannot choose the role.
      * ---------------------------------------------------------
      */
+
     return NextResponse.json({
       success: true,
 
@@ -208,10 +241,10 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: "Something went wrong. Please try again.",
+        message:
+          "Something went wrong. Please try again.",
       },
       { status: 500 }
     );
   }
 }
-
