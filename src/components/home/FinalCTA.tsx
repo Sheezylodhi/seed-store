@@ -15,14 +15,52 @@ export default function FinalCTA() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+ const [isSubmitting, setIsSubmitting] = useState(false);
+const [newsletterError, setNewsletterError] = useState("");
 
-    if (!email.trim()) return;
+const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  const trimmedEmail = email.trim();
+
+  if (!trimmedEmail || isSubmitting) return;
+
+  setIsSubmitting(true);
+  setNewsletterError("");
+
+  try {
+    const response = await fetch("/api/newsletter/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: trimmedEmail,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.message || "Something went wrong."
+      );
+    }
 
     setSubmitted(true);
     setEmail("");
-  };
+  } catch (error) {
+    console.error("Newsletter subscription failed:", error);
+
+    setNewsletterError(
+      error instanceof Error
+        ? error.message
+        : "Unable to subscribe right now."
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <section
@@ -642,37 +680,43 @@ export default function FinalCTA() {
                   "
                 />
 
-                <button
-                  type="submit"
-                  className="
-                    inline-flex
-                    shrink-0
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-full
-                    bg-[#a9bdaa]
-                    px-5
-                    py-3.5
-                    text-[11px]
-                    font-bold
-                    uppercase
-                    tracking-[0.06em]
-                    text-[#234636]
-                    transition-all
-                    duration-300
-                    hover:-translate-y-0.5
-                    hover:bg-[#c9d7c9]
-                  "
-                >
-                  Subscribe
+               <button
+  type="submit"
+  disabled={isSubmitting}
+  className="
+    inline-flex
+    shrink-0
+    items-center
+    justify-center
+    gap-2
+    rounded-full
+    bg-[#a9bdaa]
+    px-5
+    py-3.5
+    text-[11px]
+    font-bold
+    uppercase
+    tracking-[0.06em]
+    text-[#234636]
+    transition-all
+    duration-300
+    hover:-translate-y-0.5
+    hover:bg-[#c9d7c9]
+    disabled:cursor-not-allowed
+    disabled:opacity-60
+  "
+>
+  {isSubmitting ? "Joining..." : "Subscribe"}
 
-                  <ArrowRight
-                    size={14}
-                    strokeWidth={1.8}
-                  />
-                </button>
+  {!isSubmitting && (
+    <ArrowRight
+      size={14}
+      strokeWidth={1.8}
+    />
+  )}
+</button>
               </form>
+              
             ) : (
               <motion.div
                 initial={{
@@ -824,6 +868,11 @@ export default function FinalCTA() {
           to-transparent
         "
       />
+      {newsletterError && (
+  <p className="mt-2 text-[11px] text-red-200">
+    {newsletterError}
+  </p>
+)}
     </section>
   );
 }

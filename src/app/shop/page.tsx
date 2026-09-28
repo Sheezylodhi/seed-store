@@ -12,7 +12,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
-  Heart,
   Leaf,
   Search,
   ShoppingBag,
@@ -124,6 +123,21 @@ function getActiveVariants(product: Product) {
   );
 }
 
+/*
+ * Converts a dynamic product type into a safe HTML id.
+ *
+ * Example:
+ * "Seed Cycling" -> "product-type-seed-cycling"
+ * "Flax Seeds"   -> "product-type-flax-seeds"
+ */
+function getProductTypeId(type: string) {
+  return `product-type-${type
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")}`;
+}
+
 /* =========================================================
    SHOP PAGE
 ========================================================= */
@@ -225,7 +239,6 @@ export default function ShopPage() {
 
   /* =========================================================
      DYNAMIC PACK SIZES
-     Comes from backend variants
   ========================================================= */
 
   const weights = useMemo(() => {
@@ -244,6 +257,63 @@ export default function ShopPage() {
 
     return Array.from(new Set(values));
   }, [products]);
+
+  /* =========================================================
+     SCROLL TO PRODUCT TYPE
+  ========================================================= */
+
+  function scrollToProductType(type: string) {
+    if (type === "All Products") {
+      return;
+    }
+
+    /*
+     * Wait one frame so React can first apply
+     * the selected type filter and render
+     * the matching product cards.
+     */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const element = document.getElementById(
+          getProductTypeId(type)
+        );
+
+        if (!element) {
+          return;
+        }
+
+        const navbarOffset = 100;
+
+        const elementTop =
+          element.getBoundingClientRect().top +
+          window.scrollY -
+          navbarOffset;
+
+        window.scrollTo({
+          top: Math.max(elementTop, 0),
+          behavior: "smooth",
+        });
+      });
+    });
+  }
+
+  /* =========================================================
+     HANDLE PRODUCT TYPE SELECTION
+  ========================================================= */
+
+  function handleTypeChange(type: string) {
+    setSelectedType(type);
+
+    /*
+     * Close mobile filter drawer if
+     * the type was selected from there.
+     */
+    setFilterOpen(false);
+
+    if (type !== "All Products") {
+      scrollToProductType(type);
+    }
+  }
 
   /* =========================================================
      FILTER + SEARCH + SORT
@@ -397,110 +467,134 @@ export default function ShopPage() {
 
       <main className="min-h-screen bg-[#f8f6ef] text-[#18231d]">
 
-        {/* =====================================================
-            SHOP HEADER
-        ===================================================== */}
+      {/* =====================================================
+    SHOP HEADER
+===================================================== */}
 
-        <section className="px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pb-10 lg:pt-12">
-          <div className="mx-auto max-w-[1380px]">
+<section className="px-3 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8 lg:pb-10 lg:pt-12">
+  <div className="mx-auto max-w-[1380px]">
 
-            <div className="relative overflow-hidden rounded-[28px] bg-[#234636] px-6 py-8 text-[#f8f6ef] sm:px-8 sm:py-10 lg:px-12 lg:py-11">
+    <div className="relative overflow-hidden rounded-[24px] bg-[#234636] px-5 py-6 text-[#f8f6ef] sm:rounded-[28px] sm:px-8 sm:py-9 lg:px-12 lg:py-11">
 
-              {/* Decorative circles */}
-              <div className="pointer-events-none absolute -right-16 -top-20 h-60 w-60 rounded-full border border-white/[0.08]" />
+      {/* Decorative background */}
 
-              <div className="pointer-events-none absolute -bottom-28 right-28 h-52 w-52 rounded-full border border-white/[0.05]" />
+      <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full border border-white/[0.07] sm:-right-16 sm:-top-20 sm:h-60 sm:w-60" />
 
-              <Leaf
-                className="pointer-events-none absolute right-7 top-7 h-24 w-24 rotate-12 text-white/[0.055] sm:right-12 sm:top-9 sm:h-32 sm:w-32"
-                strokeWidth={1}
-              />
+      <div className="pointer-events-none absolute -bottom-28 -left-20 h-48 w-48 rounded-full border border-white/[0.045] sm:-bottom-28 sm:left-auto sm:right-28 sm:h-52 sm:w-52" />
 
-              <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+      <Leaf
+        className="pointer-events-none absolute -right-2 top-16 h-28 w-28 rotate-12 text-white/[0.045] sm:right-7 sm:top-9 sm:h-32 sm:w-32"
+        strokeWidth={1}
+      />
 
-                <div className="max-w-3xl">
+      {/* =================================================
+          MAIN CONTENT
+      ================================================= */}
 
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#dfe8df]" />
-                    Seedra Collection
-                  </div>
+      <div className="relative z-10">
 
-                  <h1 className="max-w-3xl text-3xl font-semibold leading-[1.08] tracking-[-0.045em] sm:text-4xl lg:text-[48px]">
-                    Seeds made for your{" "}
-                    <span className="text-white/60">
-                      daily ritual.
-                    </span>
-                  </h1>
+        {/* Eyebrow */}
 
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65 sm:text-base">
-                    Explore our collection of
-                    thoughtfully selected seeds and
-                    seed cycling blends for your
-                    everyday routine.
-                  </p>
-                </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/65 sm:px-3.5 sm:text-[10px] sm:tracking-[0.18em]">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#dfe8df]" />
+          Seedra Collection
+        </div>
 
-                {/* Backend-driven product count */}
-                <div className="shrink-0">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.07] px-5 py-4 backdrop-blur-sm">
+        {/* Heading */}
 
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">
-                      Available
-                    </p>
+        <h1 className="mt-4 max-w-[700px] text-[32px] font-semibold leading-[1.04] tracking-[-0.045em] sm:mt-5 sm:text-4xl lg:text-[48px]">
+          Seeds made for your{" "}
+          <span className="text-white/55">
+            daily ritual.
+          </span>
+        </h1>
 
-                    <div className="mt-1 flex items-end gap-2">
-                      <span className="text-3xl font-semibold tracking-tight">
-                        {products.length}
-                      </span>
+        {/* Description */}
 
-                      <span className="pb-1 text-xs text-white/45">
-                        products
-                      </span>
-                    </div>
+        <p className="mt-4 max-w-[620px] text-[13px] leading-6 text-white/60 sm:text-sm sm:leading-7 lg:text-base">
+          Explore our collection of thoughtfully
+          selected seeds and seed cycling blends
+          for your everyday routine.
+        </p>
 
-                  </div>
-                </div>
+        {/* =================================================
+            PRODUCT COUNT
+        ================================================= */}
 
+        <div className="mt-6 flex items-center sm:mt-7">
+
+          <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 backdrop-blur-sm">
+
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-white/40">
+                Available
+              </p>
+
+              <div className="mt-0.5 flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold tracking-tight">
+                  {products.length}
+                </span>
+
+                <span className="text-[11px] text-white/45">
+                  products
+                </span>
               </div>
-
-              {/* Dynamic product types */}
-              {filterTypes.length > 1 && (
-                <div className="relative z-10 mt-8 flex gap-2 overflow-x-auto border-t border-white/10 pt-5 scrollbar-hide">
-
-                  {filterTypes.map(
-                    (type) => {
-                      const active =
-                        selectedType ===
-                        type;
-
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() =>
-                            setSelectedType(
-                              type
-                            )
-                          }
-                          className={[
-                            "shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-all",
-                            active
-                              ? "bg-[#f8f6ef] text-[#234636]"
-                              : "border border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.08] hover:text-white",
-                          ].join(" ")}
-                        >
-                          {type}
-                        </button>
-                      );
-                    }
-                  )}
-
-                </div>
-              )}
-
             </div>
+
           </div>
-        </section>
+
+        </div>
+
+      </div>
+
+      {/* =================================================
+          PRODUCT TYPE NAVIGATION
+      ================================================= */}
+
+      {filterTypes.length > 1 && (
+        <div className="relative z-10 mt-6 border-t border-white/10 pt-4 sm:mt-8 sm:pt-5">
+
+          <div className="mb-2.5 flex items-center justify-between">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">
+              Browse collection
+            </span>
+
+            <span className="text-[9px] text-white/30 sm:hidden">
+              Swipe
+            </span>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+
+            {filterTypes.map((type) => {
+              const active = selectedType === type;
+
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handleTypeChange(type)}
+                  className={[
+                    "shrink-0 rounded-full px-4 py-2.5 text-[11px] font-semibold transition-all",
+                    active
+                      ? "bg-[#f8f6ef] text-[#234636] shadow-sm"
+                      : "border border-white/10 bg-white/[0.035] text-white/55 hover:bg-white/[0.08] hover:text-white",
+                  ].join(" ")}
+                >
+                  {type}
+                </button>
+              );
+            })}
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
+
+  </div>
+</section>
 
         {/* =====================================================
             SEARCH + FILTER BAR
@@ -516,20 +610,22 @@ export default function ShopPage() {
                 {/* Search */}
                 <div className="relative flex-1">
 
-                 <Search
-  className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747970]"
-  strokeWidth={1.8}
-/>
+                  <Search
+                    className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747970]"
+                    strokeWidth={1.8}
+                  />
 
                   <input
-  type="search"
-  value={searchQuery}
-  onChange={(event) =>
-    setSearchQuery(event.target.value)
-  }
-  placeholder="Search seeds, blends or products..."
-  className="h-12 w-full rounded-xl border border-[#e3e7df] bg-[#f8f6ef] pl-11 pr-4 text-sm text-[#234636] outline-none placeholder:text-[#8b938c] transition focus:border-[#d1dbd2] focus:bg-white focus:ring-0"
-/>
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) =>
+                      setSearchQuery(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Search seeds, blends or products..."
+                    className="h-12 w-full rounded-xl border border-[#e3e7df] bg-[#f8f6ef] pl-11 pr-4 text-sm text-[#234636] outline-none placeholder:text-[#8b938c] transition focus:border-[#d1dbd2] focus:bg-white focus:ring-0"
+                  />
 
                 </div>
 
@@ -650,7 +746,10 @@ export default function ShopPage() {
             PRODUCTS
         ===================================================== */}
 
-        <section className="px-4 pb-20 pt-10 sm:px-6 lg:px-8 lg:pb-24 lg:pt-12">
+        <section
+          id="products"
+          className="scroll-mt-28 px-4 pb-20 pt-10 sm:px-6 lg:px-8 lg:pb-24 lg:pt-12"
+        >
 
           <div className="mx-auto max-w-[1380px]">
 
@@ -777,7 +876,7 @@ export default function ShopPage() {
         }
         sortBy={sortBy}
         onTypeChange={
-          setSelectedType
+          handleTypeChange
         }
         onWeightChange={
           setSelectedWeight
@@ -794,77 +893,78 @@ export default function ShopPage() {
         }
       />
 
-      {/* =====================================================
-    FINAL CTA
-===================================================== */}
+      {/* =======================================================
+          FINAL CTA
+      ======================================================= */}
 
-<section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-24">
-  <div className="mx-auto max-w-[1380px]">
-    <div className="relative overflow-hidden rounded-[28px] bg-[#234636] px-6 py-12 text-[#f8f6ef] sm:px-10 sm:py-14 lg:px-14 lg:py-16">
+      <section className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-24">
 
-      {/* Decorative elements */}
-      <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full border border-white/[0.07]" />
+        <div className="mx-auto max-w-[1380px]">
 
-      <div className="pointer-events-none absolute -bottom-32 right-20 h-72 w-72 rounded-full border border-white/[0.05]" />
+          <div className="relative overflow-hidden rounded-[28px] bg-[#234636] px-6 py-12 text-[#f8f6ef] sm:px-10 sm:py-14 lg:px-14 lg:py-16">
 
-      <Leaf
-        className="pointer-events-none absolute right-8 top-8 h-28 w-28 rotate-12 text-white/[0.045] sm:right-14 sm:top-10 sm:h-40 sm:w-40"
-        strokeWidth={1}
-      />
+            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full border border-white/[0.07]" />
 
-      <div className="relative z-10 max-w-3xl">
+            <div className="pointer-events-none absolute -bottom-32 right-20 h-72 w-72 rounded-full border border-white/[0.05]" />
 
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#dfe8df]" />
-          Your Daily Ritual
-        </span>
-
-        <h2 className="mt-5 max-w-2xl text-3xl font-semibold leading-[1.08] tracking-[-0.045em] sm:text-4xl lg:text-[48px]">
-          Small seeds.
-          <br />
-          <span className="text-white/55">
-            A thoughtful daily ritual.
-          </span>
-        </h2>
-
-        <p className="mt-5 max-w-xl text-sm leading-7 text-white/60 sm:text-base">
-          Thoughtfully selected seed blends and
-          individual seeds made to fit naturally
-          into your everyday routine.
-        </p>
-
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-
-          <Link
-            href="/#our-story"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#f8f6ef] px-6 text-sm font-semibold text-[#234636] transition hover:bg-white"
-          >
-            Explore Our Story
-
-            <ArrowUpRight
-              className="h-4 w-4"
-              strokeWidth={1.8}
+            <Leaf
+              className="pointer-events-none absolute right-8 top-8 h-28 w-28 rotate-12 text-white/[0.045] sm:right-14 sm:top-10 sm:h-40 sm:w-40"
+              strokeWidth={1}
             />
-          </Link>
 
-          <Link
-            href="/#how-it-works"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-6 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/[0.12]"
-          >
-            How It Works
+            <div className="relative z-10 max-w-3xl">
 
-            <ArrowRight
-              className="h-4 w-4"
-              strokeWidth={1.8}
-            />
-          </Link>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#dfe8df]" />
+                Your Daily Ritual
+              </span>
 
+              <h2 className="mt-5 max-w-2xl text-3xl font-semibold leading-[1.08] tracking-[-0.045em] sm:text-4xl lg:text-[48px]">
+                Small seeds.
+                <br />
+                <span className="text-white/55">
+                  A thoughtful daily ritual.
+                </span>
+              </h2>
+
+              <p className="mt-5 max-w-xl text-sm leading-7 text-white/60 sm:text-base">
+                Thoughtfully selected seed blends and
+                individual seeds made to fit naturally
+                into your everyday routine.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+
+                <Link
+                  href="/#our-story"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#f8f6ef] px-6 text-sm font-semibold text-[#234636] transition hover:bg-white"
+                >
+                  Explore Our Story
+
+                  <ArrowUpRight
+                    className="h-4 w-4"
+                    strokeWidth={1.8}
+                  />
+                </Link>
+
+                <Link
+                  href="/#how-it-works"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-6 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/[0.12]"
+                >
+                  How It Works
+
+                  <ArrowRight
+                    className="h-4 w-4"
+                    strokeWidth={1.8}
+                  />
+                </Link>
+
+              </div>
+
+            </div>
+          </div>
         </div>
-
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
       <Footer />
     </>
@@ -946,7 +1046,6 @@ function FilterDrawer({
     <AnimatePresence>
       {open && (
         <>
-          {/* Overlay */}
           <motion.button
             type="button"
             aria-label="Close filters"
@@ -963,7 +1062,6 @@ function FilterDrawer({
             className="fixed inset-0 z-[80] cursor-default bg-[#102319]/45 backdrop-blur-[2px]"
           />
 
-          {/* Drawer */}
           <motion.aside
             initial={{
               x: "100%",
@@ -1160,6 +1258,7 @@ function FilterDrawer({
                               }
                             />
                           )}
+
                         </button>
                       );
                     }
@@ -1291,7 +1390,7 @@ function ProductCard({
   );
 
   /* =========================================================
-     AVAILABLE PACK SIZES FROM BACKEND
+     AVAILABLE PACK SIZES
   ========================================================= */
 
   const availableWeights = useMemo(() => {
@@ -1310,8 +1409,6 @@ function ProductCard({
 
   const [selectedWeight, setSelectedWeight] =
     useState("");
-
-  const [liked, setLiked] = useState(false);
 
   /* =========================================================
      DEFAULT AVAILABLE VARIANT
@@ -1407,71 +1504,67 @@ function ProductCard({
   ========================================================= */
 
   function handleAddToCart() {
-  if (isOutOfStock) {
-    return;
+    if (isOutOfStock) {
+      return;
+    }
+
+    const purchasableVariant =
+      selectedVariant &&
+      selectedVariant.stock > 0
+        ? selectedVariant
+        : activeVariants.find(
+            (variant) => variant.stock > 0
+          );
+
+    if (
+      activeVariants.length > 0 &&
+      !purchasableVariant
+    ) {
+      return;
+    }
+
+    addToCart({
+      id: purchasableVariant
+        ? `${product.id}-${purchasableVariant.id}`
+        : product.id,
+
+      productId: product.id,
+
+      variantId:
+        purchasableVariant?.id || null,
+
+      name: product.name,
+      slug: product.slug,
+
+      price:
+        purchasableVariant?.price ??
+        product.price,
+
+      image:
+        product.image ||
+        product.images?.[0] ||
+        "",
+
+      quantity: 1,
+
+      productType: product.type,
+
+      packSize:
+        purchasableVariant?.packSize || "",
+
+      deliveryType:
+        product.deliveryType === "paid"
+          ? "paid"
+          : "free",
+
+      deliveryCharge:
+        product.deliveryType === "paid"
+          ? Number(product.deliveryCharge) || 0
+          : 0,
+    });
+
+    openCart();
   }
-
-  const purchasableVariant =
-    selectedVariant &&
-    selectedVariant.stock > 0
-      ? selectedVariant
-      : activeVariants.find(
-          (variant) => variant.stock > 0
-        );
-
-  if (
-    activeVariants.length > 0 &&
-    !purchasableVariant
-  ) {
-    return;
-  }
-
-  addToCart({
-    // Cart item unique ID
-    id: purchasableVariant
-      ? `${product.id}-${purchasableVariant.id}`
-      : product.id,
-
-    // Actual MongoDB Product ID
-    productId: product.id,
-
-    // Actual MongoDB Variant ID
-    variantId:
-      purchasableVariant?.id || null,
-
-    name: product.name,
-    slug: product.slug,
-
-    price:
-      purchasableVariant?.price ??
-      product.price,
-
-    image:
-      product.image ||
-      product.images?.[0] ||
-      "",
-
-    quantity: 1,
-
-    productType: product.type,
-
-    packSize:
-      purchasableVariant?.packSize || "",
-
-    deliveryType:
-      product.deliveryType === "paid"
-        ? "paid"
-        : "free",
-
-    deliveryCharge:
-      product.deliveryType === "paid"
-        ? Number(product.deliveryCharge) || 0
-        : 0,
-  });
-
-  /* Open cart drawer after adding */
-  openCart();
-}
 
   const image =
     product.image ||
@@ -1480,6 +1573,21 @@ function ProductCard({
 
   return (
     <motion.article
+      /*
+       * IMPORTANT:
+       *
+       * Every product card receives an ID based
+       * on its dynamic backend product type.
+       *
+       * Example:
+       * product.type = "Flax Seeds"
+       *
+       * id = "product-type-flax-seeds"
+       *
+       * This allows the header filter to scroll
+       * directly to the first matching card.
+       */
+      id={getProductTypeId(product.type)}
       initial={{
         opacity: 0,
         y: 16,
@@ -1497,11 +1605,11 @@ function ProductCard({
       }}
       className="group relative overflow-hidden rounded-[24px] border border-[#234636]/10 bg-[#18231d] shadow-[0_8px_30px_rgba(35,70,54,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(35,70,54,0.13)]"
     >
-      {/* =====================================================
-          IMAGE
-      ===================================================== */}
+
+      {/* IMAGE */}
 
       <div className="relative aspect-[0.9/1] overflow-hidden">
+
         <Link
           href={`/shop/${product.slug}`}
           className="absolute inset-0 z-0"
@@ -1515,11 +1623,10 @@ function ProductCard({
           <div className="absolute inset-0 bg-gradient-to-b from-[#0d1b14]/30 via-transparent to-[#0d1b14]/95" />
         </Link>
 
-        {/* =================================================
-            TOP CONTENT
-        ================================================= */}
+        {/* TOP CONTENT */}
 
         <div className="absolute left-4 right-4 top-4 z-10 flex items-start justify-between gap-3">
+
           {product.type ? (
             <span className="rounded-full border border-white/15 bg-[#234636]/85 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-md">
               {product.type}
@@ -1528,41 +1635,50 @@ function ProductCard({
             <span />
           )}
 
-        <WishlistButton
-  productId={product.id}
-  product={{
-    id: product.id,
-    name: product.name,
-    category:
-      product.category?.name || "",
-    price: formatPrice(displayPrice),
-    oldPrice:
-      displayComparePrice &&
-      displayComparePrice > displayPrice
-        ? formatPrice(displayComparePrice)
-        : null,
-    image:
-      product.image ||
-      product.images?.[0] ||
-      "/placeholder-product.jpg",
-    rating: product.rating,
-    reviews: product.reviews,
-    badge: product.type || null,
-    href: `/shop/${product.slug}`,
-  }}
-  size="sm"
-  className="border-white/20 bg-black/20 text-white hover:bg-white hover:text-[#234636]"
-/>
+          <WishlistButton
+            productId={product.id}
+            product={{
+              id: product.id,
+              name: product.name,
+              category:
+                product.category?.name ||
+                "",
+              price: formatPrice(
+                displayPrice
+              ),
+              oldPrice:
+                displayComparePrice &&
+                displayComparePrice >
+                  displayPrice
+                  ? formatPrice(
+                      displayComparePrice
+                    )
+                  : null,
+              image:
+                product.image ||
+                product.images?.[0] ||
+                "/placeholder-product.jpg",
+              rating:
+                product.rating,
+              reviews:
+                product.reviews,
+              badge:
+                product.type || null,
+              href: `/shop/${product.slug}`,
+            }}
+            size="sm"
+            className="border-white/20 bg-black/20 text-white hover:bg-white hover:text-[#234636]"
+          />
+
         </div>
 
-        {/* =================================================
-            RATING
-        ================================================= */}
+        {/* RATING */}
 
         {typeof product.rating ===
           "number" &&
           product.rating > 0 && (
             <div className="absolute right-4 top-[68px] z-10 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1.5 backdrop-blur-md">
+
               <Star
                 className="h-3 w-3 text-[#234636]"
                 fill="currentColor"
@@ -1579,28 +1695,30 @@ function ProductCard({
                     ({product.reviews})
                   </span>
                 )}
+
             </div>
           )}
 
-        {/* =================================================
-            SOLD OUT
-        ================================================= */}
+        {/* SOLD OUT */}
 
         {isOutOfStock && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#102319]/35 backdrop-blur-[1px]">
+
             <span className="rounded-full bg-[#f8f6ef] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#234636] shadow-lg">
               Sold Out
             </span>
+
           </div>
         )}
 
-        {/* =================================================
-            PRODUCT CONTENT OVER IMAGE
-        ================================================= */}
+        {/* PRODUCT CONTENT */}
 
         <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-6">
+
           <div className="flex items-end justify-between gap-4">
+
             <div className="min-w-0 flex-1">
+
               {product.category?.name && (
                 <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/50">
                   {product.category.name}
@@ -1620,17 +1738,21 @@ function ProductCard({
                   {product.description}
                 </p>
               )}
+
             </div>
 
             {/* PRICE */}
 
             <div className="shrink-0 text-right">
+
               <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/45">
                 From
               </p>
 
               <p className="mt-0.5 text-lg font-semibold tracking-[-0.03em] text-white">
-                {formatPrice(displayPrice)}
+                {formatPrice(
+                  displayPrice
+                )}
               </p>
 
               {displayComparePrice &&
@@ -1642,18 +1764,20 @@ function ProductCard({
                     )}
                   </p>
                 )}
+
             </div>
+
           </div>
 
-          {/* =================================================
-              PACK SIZES
-          ================================================= */}
+          {/* PACK SIZES */}
 
           {availableWeights.length >
             0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
+
               {availableWeights.map(
                 (weight) => {
+
                   const variant =
                     activeVariants.find(
                       (item) =>
@@ -1695,15 +1819,13 @@ function ProductCard({
                   );
                 }
               )}
+
             </div>
           )}
 
-          {/* =================================================
-              ACTION ROW
-          ================================================= */}
+          {/* ACTION ROW */}
 
           <div className="mt-4 flex gap-2">
-            {/* View Product */}
 
             <Link
               href={`/shop/${product.slug}`}
@@ -1715,8 +1837,6 @@ function ProductCard({
                 strokeWidth={1.8}
               />
             </Link>
-
-            {/* Add To Cart */}
 
             <button
               type="button"
@@ -1731,6 +1851,7 @@ function ProductCard({
                   : "bg-[#f8f6ef] text-[#234636] hover:bg-white",
               ].join(" ")}
             >
+
               <ShoppingBag
                 className="h-4 w-4"
                 strokeWidth={1.8}
@@ -1739,13 +1860,18 @@ function ProductCard({
               {isOutOfStock
                 ? "Unavailable"
                 : "Add to Cart"}
+
             </button>
+
           </div>
+
         </div>
+
       </div>
     </motion.article>
   );
 }
+
 /* =========================================================
    PRODUCT SKELETON
 ========================================================= */
@@ -1827,3 +1953,4 @@ function EmptyState({
     </div>
   );
 }
+

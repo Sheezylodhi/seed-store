@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/db";
-
 import cloudinary from "@/lib/cloudinary";
 
 import Product from "@/models/Product";
-
 import Order from "@/models/Order";
-
 import Coupon from "@/models/Coupon";
 
+import {
+  sendOrderConfirmationEmail,
+  sendNewOrderAdminEmail,
+} from "@/lib/mailer";
+
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type PaymentMethod =
   | "cod"
@@ -35,7 +37,7 @@ type IncomingItem = {
   packSize?: string;
 };
 
-function cleanString(value: FormDataEntryValue | null) {
+function cleanString(value: FormDataEntryValue | null): string {
   if (value === null || typeof value !== "string") {
     return "";
   }
@@ -43,52 +45,80 @@ function cleanString(value: FormDataEntryValue | null) {
   return value.trim();
 }
 
+/* -------------------------------------------------------------------------- */
+/* COUPON DISCOUNT                                                            */
+/* -------------------------------------------------------------------------- */
+
 function calculateCouponDiscount(
   coupon: any,
   subtotal: number
-) {
+): number {
   let discount = 0;
 
   if (coupon.discountType === "percentage") {
     discount =
-      (subtotal * Number(coupon.discountValue)) / 100;
+      (subtotal * Number(coupon.discountValue || 0)) / 100;
 
     if (
       coupon.maximumDiscountAmount !== undefined &&
       coupon.maximumDiscountAmount !== null
     ) {
-      discount = Math.min(
-        discount,
-        Number(coupon.maximumDiscountAmount)
+      const maximumDiscount = Number(
+        coupon.maximumDiscountAmount
       );
+
+      if (
+        Number.isFinite(maximumDiscount) &&
+        maximumDiscount >= 0
+      ) {
+        discount = Math.min(
+          discount,
+          maximumDiscount
+        );
+      }
     }
   }
 
   if (coupon.discountType === "fixed") {
-    discount = Number(coupon.discountValue);
+    discount = Number(
+      coupon.discountValue || 0
+    );
   }
 
-  discount = Math.min(discount, subtotal);
+  if (!Number.isFinite(discount)) {
+    discount = 0;
+  }
 
-  return Math.max(Math.round(discount), 0);
+  discount = Math.min(
+    discount,
+    subtotal
+  );
+
+  return Math.max(
+    Math.round(discount),
+    0
+  );
 }
 
-/*
-|--------------------------------------------------------------------------
-| DELIVERY
-|--------------------------------------------------------------------------
-|
-| Delivery is calculated from the actual products in MongoDB.
-|
-| Rules:
-| - All products free delivery => Rs. 0
-| - If any product has paid delivery => highest paid delivery charge
-| - Delivery is charged once per order, not per quantity
-| - Client-side delivery values are NOT trusted
-|
-*/
+/* -------------------------------------------------------------------------- */
+/* DELIVERY                                                                   */
+/* -------------------------------------------------------------------------- */
 
-function getProductDeliveryCharge(product: any) {
+/*
+ * Delivery is always calculated from the actual products
+ * stored in MongoDB.
+ *
+ * Rules:
+ * - All products have free delivery => Rs. 0
+ * - If one or more products have paid delivery =>
+ *   highest paid delivery charge is used.
+ * - Delivery is charged once per order.
+ * - Client-side delivery values are never trusted.
+ */
+
+function getProductDeliveryCharge(
+  product: any
+): number {
   const deliveryType =
     product?.deliveryType === "paid"
       ? "paid"
@@ -98,81 +128,96 @@ function getProductDeliveryCharge(product: any) {
     return 0;
   }
 
-  const charge = Number(product?.deliveryCharge);
+  const charge = Number(
+    product?.deliveryCharge
+  );
 
-  if (!Number.isFinite(charge) || charge < 0) {
+  if (
+    !Number.isFinite(charge) ||
+    charge < 0
+  ) {
     return 0;
   }
 
   return charge;
 }
 
-/*
-|--------------------------------------------------------------------------
-| CLOUDINARY PAYMENT SCREENSHOT
-|--------------------------------------------------------------------------
-*/
+/* -------------------------------------------------------------------------- */
+/* CLOUDINARY PAYMENT SCREENSHOT                                               */
+/* -------------------------------------------------------------------------- */
 
-async function uploadPaymentScreenshot(file: File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+async function uploadPaymentScreenshot(
+  file: File
+): Promise<{
+  secure_url: string;
+  public_id: string;
+}> {
+  const arrayBuffer =
+    await file.arrayBuffer();
 
-  return new Promise<{
-    secure_url: string;
-    public_id: string;
-  }>((resolve, reject) => {
-    const uploadStream =
-      cloudinary.uploader.upload_stream(
-        {
-          folder: "seedra/payment-proofs",
-          resource_type: "image",
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-            return;
+  const buffer =
+    Buffer.from(arrayBuffer);
+
+  return new Promise(
+    (resolve, reject) => {
+      const uploadStream =
+        cloudinary.uploader.upload_stream(
+          {
+            folder:
+              "seedra/payment-proofs",
+            resource_type: "image",
+          },
+          (
+            error,
+            result
+          ) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            if (
+              !result?.secure_url ||
+              !result?.public_id
+            ) {
+              reject(
+                new Error(
+                  "Cloudinary upload failed"
+                )
+              );
+              return;
+            }
+
+            resolve({
+              secure_url:
+                result.secure_url,
+              public_id:
+                result.public_id,
+            });
           }
+        );
 
-          if (
-            !result?.secure_url ||
-            !result?.public_id
-          ) {
-            reject(
-              new Error(
-                "Cloudinary upload failed"
-              )
-            );
-            return;
-          }
-
-          resolve({
-            secure_url: result.secure_url,
-            public_id: result.public_id,
-          });
-        }
-      );
-
-    uploadStream.end(buffer);
-  });
+      uploadStream.end(buffer);
+    }
+  );
 }
 
-/*
-|--------------------------------------------------------------------------
-| POST /api/orders
-|--------------------------------------------------------------------------
-*/
+/* -------------------------------------------------------------------------- */
+/* POST /api/orders                                                           */
+/* -------------------------------------------------------------------------- */
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+) {
   try {
     await connectDB();
 
-    const formData = await request.formData();
+    const formData =
+      await request.formData();
 
-    /*
-    |--------------------------------------------------------------------------
-    | BASIC DATA
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* BASIC DATA                                                             */
+    /* ---------------------------------------------------------------------- */
 
     let customerInfo: any;
     let shippingAddress: any;
@@ -181,51 +226,64 @@ export async function POST(request: NextRequest) {
     try {
       customerInfo = JSON.parse(
         String(
-          formData.get("customerInfo") || "{}"
+          formData.get(
+            "customerInfo"
+          ) || "{}"
         )
       );
 
       shippingAddress = JSON.parse(
         String(
-          formData.get("shippingAddress") || "{}"
+          formData.get(
+            "shippingAddress"
+          ) || "{}"
         )
       );
 
       items = JSON.parse(
         String(
-          formData.get("items") || "[]"
+          formData.get("items") ||
+            "[]"
         )
       );
     } catch {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid checkout data.",
+          message:
+            "Invalid checkout data.",
         },
         { status: 400 }
       );
     }
 
-    const paymentMethod = String(
-      formData.get("paymentMethod") || "cod"
-    ) as PaymentMethod;
+    const paymentMethod =
+      String(
+        formData.get(
+          "paymentMethod"
+        ) || "cod"
+      ) as PaymentMethod;
 
-    const couponCode = cleanString(
-      formData.get("couponCode")
-    ).toUpperCase();
+    const couponCode =
+      cleanString(
+        formData.get(
+          "couponCode"
+        )
+      ).toUpperCase();
 
-    const notes = cleanString(
-      formData.get("notes")
-    );
+    const notes =
+      cleanString(
+        formData.get("notes")
+      );
 
     const paymentScreenshot =
-      formData.get("paymentScreenshot");
+      formData.get(
+        "paymentScreenshot"
+      );
 
-    /*
-    |--------------------------------------------------------------------------
-    | PAYMENT METHOD
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* PAYMENT METHOD VALIDATION                                              */
+    /* ---------------------------------------------------------------------- */
 
     if (
       !allowedPaymentMethods.includes(
@@ -235,23 +293,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid payment method.",
+          message:
+            "Invalid payment method.",
         },
         { status: 400 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CUSTOMER VALIDATION
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* CUSTOMER VALIDATION                                                    */
+    /* ---------------------------------------------------------------------- */
+
+    const firstName =
+      String(
+        customerInfo?.firstName || ""
+      ).trim();
+
+    const lastName =
+      String(
+        customerInfo?.lastName || ""
+      ).trim();
+
+    const email =
+      String(
+        customerInfo?.email || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const phone =
+      String(
+        customerInfo?.phone || ""
+      ).trim();
 
     if (
-      !customerInfo?.firstName ||
-      !customerInfo?.lastName ||
-      !customerInfo?.email ||
-      !customerInfo?.phone
+      !firstName ||
+      !lastName ||
+      !email ||
+      !phone
     ) {
       return NextResponse.json(
         {
@@ -263,14 +342,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /* Fixed email regex */
     const emailRegex =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (
-      !emailRegex.test(
-        String(customerInfo.email).trim()
-      )
-    ) {
+    if (!emailRegex.test(email)) {
       return NextResponse.json(
         {
           success: false,
@@ -281,16 +357,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADDRESS VALIDATION
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* ADDRESS VALIDATION                                                     */
+    /* ---------------------------------------------------------------------- */
 
-    if (
-      !shippingAddress?.address ||
-      !shippingAddress?.city
-    ) {
+    const address =
+      String(
+        shippingAddress?.address ||
+          ""
+      ).trim();
+
+    const city =
+      String(
+        shippingAddress?.city ||
+          ""
+      ).trim();
+
+    if (!address || !city) {
       return NextResponse.json(
         {
           success: false,
@@ -301,11 +384,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ITEMS VALIDATION
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* ITEMS VALIDATION                                                       */
+    /* ---------------------------------------------------------------------- */
 
     if (
       !Array.isArray(items) ||
@@ -314,22 +395,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Your cart is empty.",
+          message:
+            "Your cart is empty.",
         },
         { status: 400 }
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | PAYMENT SCREENSHOT VALIDATION
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* PAYMENT SCREENSHOT VALIDATION                                          */
+    /* ---------------------------------------------------------------------- */
 
     if (paymentMethod !== "cod") {
       if (
         !paymentScreenshot ||
-        !(paymentScreenshot instanceof File)
+        !(paymentScreenshot instanceof File) ||
+        paymentScreenshot.size === 0
       ) {
         return NextResponse.json(
           {
@@ -341,12 +422,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const allowedImageTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ];
+
       if (
-        ![
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-        ].includes(paymentScreenshot.type)
+        !allowedImageTypes.includes(
+          paymentScreenshot.type
+        )
       ) {
         return NextResponse.json(
           {
@@ -373,30 +458,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | BUILD ORDER ITEMS FROM DATABASE
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* BUILD ORDER ITEMS FROM DATABASE                                        */
+    /* ---------------------------------------------------------------------- */
 
     let subtotal = 0;
 
     const orderItems: any[] = [];
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELIVERY CALCULATION
-    |--------------------------------------------------------------------------
-    */
-
-    const productDeliveryCharges: number[] = [];
+    const productDeliveryCharges: number[] =
+      [];
 
     for (const item of items) {
-      /*
-      |--------------------------------------------------------------------------
-      | PRODUCT ID
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* PRODUCT ID                                                            */
+      /* -------------------------------------------------------------------- */
 
       if (
         !item?.productId ||
@@ -407,19 +483,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            message: "Invalid product.",
+            message:
+              "Invalid product.",
           },
           { status: 400 }
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | QUANTITY
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* QUANTITY                                                              */
+      /* -------------------------------------------------------------------- */
 
-      const quantity = Number(item.quantity);
+      const quantity =
+        Number(item.quantity);
 
       if (
         !Number.isInteger(quantity) ||
@@ -435,15 +511,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | PRODUCT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* PRODUCT                                                               */
+      /* -------------------------------------------------------------------- */
 
-      const product = await Product.findById(
-        item.productId
-      );
+      const product =
+        await Product.findById(
+          item.productId
+        );
 
       if (!product) {
         return NextResponse.json(
@@ -456,14 +531,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | ACTIVE CHECK
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* ACTIVE CHECK                                                          */
+      /* -------------------------------------------------------------------- */
 
       if (
-        (product as any).isActive === false
+        (product as any).isActive ===
+        false
       ) {
         return NextResponse.json(
           {
@@ -474,87 +548,89 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | DELIVERY
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* DELIVERY                                                              */
+      /* -------------------------------------------------------------------- */
 
       const productDeliveryCharge =
-        getProductDeliveryCharge(product);
+        getProductDeliveryCharge(
+          product
+        );
 
-      if (productDeliveryCharge > 0) {
+      if (
+        productDeliveryCharge > 0
+      ) {
         productDeliveryCharges.push(
           productDeliveryCharge
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | PRICE / STOCK / VARIANT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* PRICE / STOCK / VARIANT                                               */
+      /* -------------------------------------------------------------------- */
 
       let price = 0;
-
       let stock = 0;
-
       let sku: string | undefined;
-
-      let packSize: string | undefined;
+      let packSize:
+        | string
+        | undefined;
 
       let variantId:
         | mongoose.Types.ObjectId
         | undefined;
 
-      const variants = Array.isArray(
-        (product as any).variants
-      )
-        ? (product as any).variants
-        : [];
+      const variants =
+        Array.isArray(
+          (product as any).variants
+        )
+          ? (product as any).variants
+          : [];
 
-      /*
-      |--------------------------------------------------------------------------
-      | VARIANT PRODUCT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* VARIANT PRODUCT                                                       */
+      /* -------------------------------------------------------------------- */
 
       if (variants.length > 0) {
-        const variant = variants.find(
-          (v: any) => {
-            const matchesVariantId =
-              item.variantId &&
-              String(v._id) ===
-                String(item.variantId);
+        const variant =
+          variants.find(
+            (v: any) => {
+              const matchesVariantId =
+                item.variantId &&
+                String(v._id) ===
+                  String(
+                    item.variantId
+                  );
 
-            const matchesPackSize =
-              !item.variantId &&
-              v.packSize === item.packSize;
+              const matchesPackSize =
+                !item.variantId &&
+                v.packSize ===
+                  item.packSize;
 
-            return (
-              matchesVariantId ||
-              matchesPackSize
-            );
-          }
-        );
+              return (
+                matchesVariantId ||
+                matchesPackSize
+              );
+            }
+          );
 
         if (!variant) {
           return NextResponse.json(
             {
               success: false,
-              message:
-                `${product.name} variant is no longer available.`,
+              message: `${product.name} variant is no longer available.`,
             },
             { status: 400 }
           );
         }
 
-        if (variant.isActive === false) {
+        if (
+          variant.isActive === false
+        ) {
           return NextResponse.json(
             {
               success: false,
-              message:
-                `${product.name} variant is no longer available.`,
+              message: `${product.name} variant is no longer available.`,
             },
             { status: 400 }
           );
@@ -578,14 +654,13 @@ export async function POST(request: NextRequest) {
           undefined;
 
         if (variant._id) {
-          variantId = variant._id;
+          variantId =
+            variant._id;
         }
       } else {
-        /*
-        |--------------------------------------------------------------------------
-        | SIMPLE PRODUCT
-        |--------------------------------------------------------------------------
-        */
+        /* ------------------------------------------------------------------ */
+        /* SIMPLE PRODUCT                                                       */
+        /* ------------------------------------------------------------------ */
 
         price = Number(
           (product as any).price || 0
@@ -601,15 +676,14 @@ export async function POST(request: NextRequest) {
 
         packSize =
           item.packSize ||
-          (product as any).packSize ||
+          (product as any)
+            .packSize ||
           undefined;
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | PRICE VALIDATION
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* PRICE VALIDATION                                                      */
+      /* -------------------------------------------------------------------- */
 
       if (
         !Number.isFinite(price) ||
@@ -618,53 +692,65 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            message:
-              `Invalid price for ${product.name}.`,
+            message: `Invalid price for ${product.name}.`,
           },
           { status: 400 }
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | STOCK VALIDATION
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* STOCK VALIDATION                                                      */
+      /* -------------------------------------------------------------------- */
 
-      if (stock < quantity) {
+      if (
+        !Number.isFinite(stock) ||
+        stock < quantity
+      ) {
         return NextResponse.json(
           {
             success: false,
-            message:
-              `${product.name} does not have enough stock.`,
+            message: `${product.name} does not have enough stock.`,
           },
           { status: 400 }
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | LINE TOTAL
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* LINE TOTAL                                                            */
+      /* -------------------------------------------------------------------- */
 
       const lineTotal =
         price * quantity;
 
       subtotal += lineTotal;
 
-      /*
-      |--------------------------------------------------------------------------
-      | ORDER ITEM
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* PRODUCT IMAGE                                                         */
+      /* -------------------------------------------------------------------- */
+
+      const productImage =
+        typeof (product as any)
+          .images?.[0] === "string"
+          ? (product as any)
+              .images[0]
+          : (product as any)
+              .images?.[0]?.url ||
+            (product as any)
+              .image ||
+            undefined;
+
+      /* -------------------------------------------------------------------- */
+      /* ORDER ITEM                                                            */
+      /* -------------------------------------------------------------------- */
 
       orderItems.push({
-        product: product._id,
+        product:
+          product._id,
 
         variantId,
 
-        name: product.name,
+        name:
+          product.name,
 
         packSize,
 
@@ -675,18 +761,13 @@ export async function POST(request: NextRequest) {
         quantity,
 
         image:
-          (product as any).images?.[0]?.url ||
-          (product as any).images?.[0] ||
-          (product as any).image ||
-          undefined,
+          productImage,
       });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | COUPON
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* COUPON                                                                 */
+    /* ---------------------------------------------------------------------- */
 
     let discount = 0;
 
@@ -716,17 +797,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const now = new Date();
+      const now =
+        new Date();
 
-      /*
-      |--------------------------------------------------------------------------
-      | COUPON EXPIRY
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* COUPON EXPIRY                                                         */
+      /* -------------------------------------------------------------------- */
 
       if (
         coupon.expiresAt &&
-        new Date(coupon.expiresAt) <= now
+        new Date(
+          coupon.expiresAt
+        ) <= now
       ) {
         return NextResponse.json(
           {
@@ -738,17 +820,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | COUPON USAGE LIMIT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* COUPON USAGE LIMIT                                                   */
+      /* -------------------------------------------------------------------- */
 
       if (
-        coupon.usageLimit !== undefined &&
-        coupon.usageLimit !== null &&
-        coupon.usedCount >=
-          coupon.usageLimit
+        coupon.usageLimit !==
+          undefined &&
+        coupon.usageLimit !==
+          null &&
+        Number(
+          coupon.usedCount || 0
+        ) >=
+          Number(
+            coupon.usageLimit
+          )
       ) {
         return NextResponse.json(
           {
@@ -760,34 +846,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | MINIMUM ORDER AMOUNT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* MINIMUM ORDER AMOUNT                                                 */
+      /* -------------------------------------------------------------------- */
 
       if (
         coupon.minimumOrderAmount !==
           undefined &&
-        coupon.minimumOrderAmount !== null &&
+        coupon.minimumOrderAmount !==
+          null &&
         subtotal <
-          coupon.minimumOrderAmount
+          Number(
+            coupon.minimumOrderAmount
+          )
       ) {
         return NextResponse.json(
           {
             success: false,
-            message:
-              `This coupon requires a minimum order of PKR ${coupon.minimumOrderAmount.toLocaleString()}.`,
+            message: `This coupon requires a minimum order of PKR ${Number(
+              coupon.minimumOrderAmount
+            ).toLocaleString()}.`,
           },
           { status: 400 }
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | CALCULATE DISCOUNT
-      |--------------------------------------------------------------------------
-      */
+      /* -------------------------------------------------------------------- */
+      /* CALCULATE DISCOUNT                                                    */
+      /* -------------------------------------------------------------------- */
 
       discount =
         calculateCouponDiscount(
@@ -808,32 +894,27 @@ export async function POST(request: NextRequest) {
 
       appliedCoupon = {
         id: coupon._id,
-        code: coupon.code,
+        code:
+          coupon.code,
         discount,
       };
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DELIVERY
-    |--------------------------------------------------------------------------
-    |
-    | Highest paid product delivery charge wins.
-    |
-    */
+    /* ---------------------------------------------------------------------- */
+    /* DELIVERY                                                               */
+    /* ---------------------------------------------------------------------- */
 
     const deliveryCharge =
-      productDeliveryCharges.length > 0
+      productDeliveryCharges.length >
+      0
         ? Math.max(
             ...productDeliveryCharges
           )
         : 0;
 
-    /*
-    |--------------------------------------------------------------------------
-    | TOTAL
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* TOTAL                                                                  */
+    /* ---------------------------------------------------------------------- */
 
     const total = Math.max(
       subtotal -
@@ -842,11 +923,9 @@ export async function POST(request: NextRequest) {
       0
     );
 
-    /*
-    |--------------------------------------------------------------------------
-    | UPLOAD PAYMENT SCREENSHOT
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* UPLOAD PAYMENT SCREENSHOT                                              */
+    /* ---------------------------------------------------------------------- */
 
     let screenshotUrl:
       | string
@@ -888,11 +967,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ORDER NUMBER
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* ORDER NUMBER                                                           */
+    /* ---------------------------------------------------------------------- */
 
     let orderNumber = "";
 
@@ -905,16 +982,19 @@ export async function POST(request: NextRequest) {
         `SDR-${Date.now()
           .toString()
           .slice(-8)}-${Math.floor(
-          1000 + Math.random() * 9000
+          1000 +
+            Math.random() * 9000
         )}`;
 
       const exists =
         await Order.exists({
-          orderNumber: candidate,
+          orderNumber:
+            candidate,
         });
 
       if (!exists) {
-        orderNumber = candidate;
+        orderNumber =
+          candidate;
         break;
       }
     }
@@ -930,72 +1010,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE ORDER
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* CREATE ORDER                                                           */
+    /* ---------------------------------------------------------------------- */
 
     const order =
       await Order.create({
         orderNumber,
 
         customerInfo: {
-          firstName:
-            customerInfo.firstName.trim(),
-
-          lastName:
-            customerInfo.lastName.trim(),
-
-          email:
-            customerInfo.email
-              ?.trim()
-              .toLowerCase() ||
-            undefined,
-
-          phone:
-            customerInfo.phone.trim(),
+          firstName,
+          lastName,
+          email,
+          phone,
         },
 
         shippingAddress: {
           firstName:
-            shippingAddress.firstName ||
-            customerInfo.firstName.trim(),
+            String(
+              shippingAddress.firstName ||
+                firstName
+            ).trim(),
 
           lastName:
-            shippingAddress.lastName ||
-            customerInfo.lastName.trim(),
+            String(
+              shippingAddress.lastName ||
+                lastName
+            ).trim(),
 
-          address:
-            shippingAddress.address.trim(),
+          address,
 
           apartment:
-            shippingAddress.apartment
-              ?.trim() ||
+            String(
+              shippingAddress.apartment ||
+                ""
+            ).trim() ||
             undefined,
 
-          city:
-            shippingAddress.city.trim(),
+          city,
 
           postalCode:
-            shippingAddress.postalCode
-              ?.trim() ||
+            String(
+              shippingAddress.postalCode ||
+                ""
+            ).trim() ||
             undefined,
 
           country:
-            shippingAddress.country ||
+            String(
+              shippingAddress.country ||
+                "Pakistan"
+            ).trim() ||
             "Pakistan",
 
           phone:
-            shippingAddress.phone
-              ?.trim() ||
-            customerInfo.phone.trim(),
+            String(
+              shippingAddress.phone ||
+                phone
+            ).trim(),
         },
 
         billingAddressSameAsShipping:
           true,
 
-        items: orderItems,
+        items:
+          orderItems,
 
         subtotal,
 
@@ -1021,13 +1100,14 @@ export async function POST(request: NextRequest) {
 
         /*
          * Every order starts as pending.
-         * Manual payment is verified by admin.
+         * Manual payments are verified by admin.
          */
 
         paymentStatus:
           "pending",
 
-        ...(paymentMethod !== "cod"
+        ...(paymentMethod !==
+        "cod"
           ? {
               payment: {
                 gateway:
@@ -1060,18 +1140,17 @@ export async function POST(request: NextRequest) {
         ],
 
         notes:
-          notes || undefined,
+          notes ||
+          undefined,
       });
 
-    /*
-    |--------------------------------------------------------------------------
-    | REDUCE STOCK
-    |--------------------------------------------------------------------------
-    */
+    /* ---------------------------------------------------------------------- */
+    /* REDUCE STOCK                                                           */
+    /* ---------------------------------------------------------------------- */
 
     for (const item of items) {
       if (
-        !item.productId ||
+        !item?.productId ||
         !mongoose.Types.ObjectId.isValid(
           item.productId
         )
@@ -1090,9 +1169,11 @@ export async function POST(request: NextRequest) {
 
       const variants =
         Array.isArray(
-          (product as any).variants
+          (product as any)
+            .variants
         )
-          ? (product as any).variants
+          ? (product as any)
+              .variants
           : [];
 
       if (variants.length > 0) {
@@ -1102,7 +1183,9 @@ export async function POST(request: NextRequest) {
               const matchesVariantId =
                 item.variantId &&
                 String(v._id) ===
-                  String(item.variantId);
+                  String(
+                    item.variantId
+                  );
 
               const matchesPackSize =
                 !item.variantId &&
@@ -1133,8 +1216,8 @@ export async function POST(request: NextRequest) {
           Math.max(
             0,
             Number(
-              (product as any).stock ||
-                0
+              (product as any)
+                .stock || 0
             ) -
               Number(
                 item.quantity
@@ -1145,21 +1228,18 @@ export async function POST(request: NextRequest) {
       await product.save();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MARK COUPON USED
-    |--------------------------------------------------------------------------
-    |
-    | Coupon is counted ONLY after order creation.
-    |
-    */
+    /* ---------------------------------------------------------------------- */
+    /* MARK COUPON USED                                                       */
+    /* ---------------------------------------------------------------------- */
 
     if (appliedCoupon) {
       await Coupon.findOneAndUpdate(
         {
-          _id: appliedCoupon.id,
+          _id:
+            appliedCoupon.id,
 
-          isActive: true,
+          isActive:
+            true,
 
           $or: [
             {
@@ -1168,12 +1248,18 @@ export async function POST(request: NextRequest) {
               },
             },
             {
-              usageLimit: null,
+              usageLimit:
+                null,
             },
             {
               $expr: {
                 $lt: [
-                  "$usedCount",
+                  {
+                    $ifNull: [
+                      "$usedCount",
+                      0,
+                    ],
+                  },
                   "$usageLimit",
                 ],
               },
@@ -1188,18 +1274,229 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* SEND ORDER EMAILS                                                      */
+    /* ---------------------------------------------------------------------- */
+
     /*
-    |--------------------------------------------------------------------------
-    | SUCCESS
-    |--------------------------------------------------------------------------
-    */
+     * Email errors are isolated.
+     *
+     * The order remains successful even if
+     * SMTP/email sending fails.
+     */
+
+    try {
+      const customerName = [
+        order.customerInfo
+          ?.firstName || "",
+
+        order.customerInfo
+          ?.lastName || "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      /* -------------------------------------------------------------------- */
+      /* EMAIL ITEMS                                                           */
+      /* -------------------------------------------------------------------- */
+
+      const emailItems =
+        (order.items || []).map(
+          (item: any) => ({
+            name:
+              item.name,
+
+            packSize:
+              item.packSize ||
+              undefined,
+
+            price:
+              Number(
+                item.price || 0
+              ),
+
+            quantity:
+              Number(
+                item.quantity || 0
+              ),
+
+            image:
+              typeof item.image ===
+              "string"
+                ? item.image.trim()
+                : "",
+          })
+        );
+
+      /* -------------------------------------------------------------------- */
+      /* CUSTOMER EMAIL                                                        */
+      /* -------------------------------------------------------------------- */
+
+      const customerEmail =
+        order.customerInfo
+          ?.email
+          ?.trim();
+
+      if (customerEmail) {
+        await sendOrderConfirmationEmail(
+          customerEmail,
+          {
+            orderNumber:
+              order.orderNumber,
+
+            customerName:
+              customerName,
+
+            items:
+              emailItems,
+
+            subtotal:
+              Number(
+                order.subtotal || 0
+              ),
+
+            discount:
+              Number(
+                order.discount || 0
+              ),
+
+            deliveryCharge:
+              Number(
+                order.deliveryCharge ||
+                  0
+              ),
+
+            total:
+              Number(
+                order.total || 0
+              ),
+
+            paymentMethod:
+              order.paymentMethod,
+
+            paymentStatus:
+              order.paymentStatus,
+
+            shippingAddress: {
+              address:
+                order
+                  .shippingAddress
+                  ?.address ||
+                "",
+
+              city:
+                order
+                  .shippingAddress
+                  ?.city ||
+                "",
+            },
+          }
+        );
+      }
+
+      /* -------------------------------------------------------------------- */
+      /* ADMIN EMAIL                                                           */
+      /* -------------------------------------------------------------------- */
+
+      const adminEmail =
+        process.env.ADMIN_EMAIL?.trim();
+
+      if (!adminEmail) {
+        console.warn(
+          "ADMIN_EMAIL is not configured. Admin order email was skipped."
+        );
+      } else {
+        const addressParts = [
+          order
+            .shippingAddress
+            ?.address || "",
+
+          order
+            .shippingAddress
+            ?.apartment || "",
+        ].filter(Boolean);
+
+        const deliveryAddress =
+          addressParts.join(
+            ", "
+          );
+
+        await sendNewOrderAdminEmail(
+          adminEmail,
+          {
+            orderNumber:
+              order.orderNumber,
+
+            customerName:
+              customerName ||
+              "Customer",
+
+            customerEmail:
+              order.customerInfo
+                ?.email || "",
+
+            customerPhone:
+              order.customerInfo
+                ?.phone || "",
+
+            items:
+              emailItems,
+
+            subtotal:
+              Number(
+                order.subtotal || 0
+              ),
+
+            discount:
+              Number(
+                order.discount || 0
+              ),
+
+            deliveryCharge:
+              Number(
+                order.deliveryCharge ||
+                  0
+              ),
+
+            total:
+              Number(
+                order.total || 0
+              ),
+
+            paymentMethod:
+              order.paymentMethod,
+
+            paymentStatus:
+              order.paymentStatus,
+
+            address:
+              deliveryAddress ||
+              "Not provided",
+
+            city:
+              order.shippingAddress
+                ?.city || "",
+          }
+        );
+      }
+    } catch (emailError) {
+      console.error(
+        "Order email error:",
+        emailError
+      );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* SUCCESS                                                                */
+    /* ---------------------------------------------------------------------- */
 
     return NextResponse.json(
       {
         success: true,
 
         message:
-          paymentMethod === "cod"
+          paymentMethod ===
+          "cod"
             ? "Order placed successfully."
             : "Order placed successfully. Your payment proof is pending verification.",
 
@@ -1237,6 +1534,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
@@ -1247,11 +1545,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| GET /api/orders?order=SDR-XXXXXXXX-XXXX
-|--------------------------------------------------------------------------
-*/
+/* -------------------------------------------------------------------------- */
+/* GET /api/orders?order=SDR-XXXXXXXX-XXXX                                   */
+/* -------------------------------------------------------------------------- */
 
 export async function GET(
   request: NextRequest
@@ -1260,7 +1556,9 @@ export async function GET(
     await connectDB();
 
     const { searchParams } =
-      new URL(request.url);
+      new URL(
+        request.url
+      );
 
     const orderNumber =
       searchParams
@@ -1299,10 +1597,16 @@ export async function GET(
         success: true,
 
         order: {
-          id: String(order._id),
+          id: String(
+            order._id
+          ),
 
           orderNumber:
             order.orderNumber,
+
+          /* -------------------------------------------------------------- */
+          /* CUSTOMER                                                        */
+          /* -------------------------------------------------------------- */
 
           customerInfo: {
             firstName:
@@ -1321,6 +1625,10 @@ export async function GET(
               order.customerInfo
                 ?.phone || "",
           },
+
+          /* -------------------------------------------------------------- */
+          /* SHIPPING ADDRESS                                                */
+          /* -------------------------------------------------------------- */
 
           shippingAddress: {
             firstName:
@@ -1364,6 +1672,10 @@ export async function GET(
               "",
           },
 
+          /* -------------------------------------------------------------- */
+          /* ITEMS                                                           */
+          /* -------------------------------------------------------------- */
+
           items:
             (order.items || []).map(
               (item: any) => ({
@@ -1406,6 +1718,10 @@ export async function GET(
               })
             ),
 
+          /* -------------------------------------------------------------- */
+          /* TOTALS                                                          */
+          /* -------------------------------------------------------------- */
+
           subtotal:
             Number(
               order.subtotal || 0
@@ -1418,13 +1734,18 @@ export async function GET(
 
           deliveryCharge:
             Number(
-              order.deliveryCharge || 0
+              order.deliveryCharge ||
+                0
             ),
 
           total:
             Number(
               order.total || 0
             ),
+
+          /* -------------------------------------------------------------- */
+          /* COUPON                                                          */
+          /* -------------------------------------------------------------- */
 
           coupon:
             order.coupon
@@ -1441,6 +1762,10 @@ export async function GET(
                     ),
                 }
               : undefined,
+
+          /* -------------------------------------------------------------- */
+          /* PAYMENT                                                         */
+          /* -------------------------------------------------------------- */
 
           paymentMethod:
             order.paymentMethod ||
@@ -1467,7 +1792,8 @@ export async function GET(
                     order.payment
                       .submittedAt
                       ? new Date(
-                          order.payment
+                          order
+                            .payment
                             .submittedAt
                         ).toISOString()
                       : undefined,
@@ -1476,16 +1802,25 @@ export async function GET(
                     order.payment
                       .paidAt
                       ? new Date(
-                          order.payment
+                          order
+                            .payment
                             .paidAt
                         ).toISOString()
                       : undefined,
                 }
               : undefined,
 
+          /* -------------------------------------------------------------- */
+          /* ORDER STATUS                                                    */
+          /* -------------------------------------------------------------- */
+
           orderStatus:
             order.orderStatus ||
             "pending",
+
+          /* -------------------------------------------------------------- */
+          /* TRACKING                                                        */
+          /* -------------------------------------------------------------- */
 
           trackingHistory:
             (
@@ -1513,9 +1848,17 @@ export async function GET(
               })
             ),
 
+          /* -------------------------------------------------------------- */
+          /* NOTES                                                           */
+          /* -------------------------------------------------------------- */
+
           notes:
             order.notes ||
             undefined,
+
+          /* -------------------------------------------------------------- */
+          /* CREATED AT                                                      */
+          /* -------------------------------------------------------------- */
 
           createdAt:
             order.createdAt
@@ -1538,6 +1881,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
+
         message:
           error?.message ||
           "Failed to load order.",

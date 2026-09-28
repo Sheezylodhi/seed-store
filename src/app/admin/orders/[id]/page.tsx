@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronDown,
-  Clock3,
   Copy,
   CreditCard,
   Download,
@@ -18,12 +16,12 @@ import {
   MapPin,
   Package,
   Phone,
-  Save,
   ShoppingBag,
   Truck,
   User,
   X,
   XCircle,
+  Clock3,
 } from "lucide-react";
 
 type Order = {
@@ -127,16 +125,6 @@ type Order = {
   updatedAt: string;
 };
 
-const orderStatuses = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
-];
-
 const orderStatusLabels: Record<string, string> = {
   pending: "Pending",
   confirmed: "Confirmed",
@@ -146,16 +134,6 @@ const orderStatusLabels: Record<string, string> = {
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
-
-const paymentStatuses = [
-  "pending",
-  "processing",
-  "paid",
-  "failed",
-  "cancelled",
-  "refunded",
-  "partially_refunded",
-];
 
 const paymentStatusLabels: Record<string, string> = {
   pending: "Pending",
@@ -253,41 +231,41 @@ function getInitials(firstName: string, lastName: string) {
   return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
 }
 
+function ReadOnlyField({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+
+      <div
+        className={`min-h-[50px] rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 py-3.5 text-sm font-semibold text-slate-700 ${
+          mono ? "font-mono text-xs" : ""
+        }`}
+      >
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
 
   const id = params.id as string;
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [downloadingProof, setDownloadingProof] = useState(false);
-
-  const [orderStatus, setOrderStatus] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("");
-
-  const [adminNotes, setAdminNotes] = useState("");
-
-  const [courier, setCourier] = useState("");
-  const [trackingNumber, setTrackingNumber] = useState("");
-  const [estimatedDeliveryDate, setEstimatedDeliveryDate] =
-    useState("");
-
-  const [trackingNote, setTrackingNote] = useState("");
-  const [location, setLocation] = useState("");
-
-  const [transactionId, setTransactionId] = useState("");
-  const [gateway, setGateway] = useState("");
-  const [referenceNumber, setReferenceNumber] = useState("");
-
   const [message, setMessage] = useState("");
-
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  const [cancellationReason, setCancellationReason] = useState("");
-
+  const [downloadingProof, setDownloadingProof] = useState(false);
   const [copiedValue, setCopiedValue] = useState("");
 
   useEffect(() => {
@@ -306,29 +284,7 @@ export default function AdminOrderDetailPage() {
           throw new Error(result.message || "Order not found");
         }
 
-        const data: Order = result.data.order;
-
-        setOrder(data);
-
-        setOrderStatus(data.orderStatus);
-        setPaymentStatus(data.paymentStatus);
-
-        setAdminNotes(data.adminNotes || "");
-
-        setCourier(data.shipping?.courier || "");
-        setTrackingNumber(data.shipping?.trackingNumber || "");
-
-        setEstimatedDeliveryDate(
-          data.shipping?.estimatedDeliveryDate
-            ? new Date(data.shipping.estimatedDeliveryDate)
-                .toISOString()
-                .split("T")[0]
-            : ""
-        );
-
-        setTransactionId(data.payment?.transactionId || "");
-        setGateway(data.payment?.gateway || "");
-        setReferenceNumber(data.payment?.referenceNumber || "");
+        setOrder(result.data.order);
       } catch (error) {
         console.error(error);
         setMessage("Failed to load order.");
@@ -342,188 +298,6 @@ export default function AdminOrderDetailPage() {
     }
   }, [id]);
 
-  const hasUnsavedChanges = useMemo(() => {
-    if (!order) return false;
-
-    const savedEstimatedDate = order.shipping?.estimatedDeliveryDate
-      ? new Date(order.shipping.estimatedDeliveryDate)
-          .toISOString()
-          .split("T")[0]
-      : "";
-
-    return (
-      orderStatus !== order.orderStatus ||
-      paymentStatus !== order.paymentStatus ||
-      adminNotes !== (order.adminNotes || "") ||
-      courier !== (order.shipping?.courier || "") ||
-      trackingNumber !== (order.shipping?.trackingNumber || "") ||
-      estimatedDeliveryDate !== savedEstimatedDate ||
-      transactionId !== (order.payment?.transactionId || "") ||
-      gateway !== (order.payment?.gateway || "") ||
-      referenceNumber !== (order.payment?.referenceNumber || "") ||
-      trackingNote.trim() !== "" ||
-      location.trim() !== ""
-    );
-  }, [
-    order,
-    orderStatus,
-    paymentStatus,
-    adminNotes,
-    courier,
-    trackingNumber,
-    estimatedDeliveryDate,
-    transactionId,
-    gateway,
-    referenceNumber,
-    trackingNote,
-    location,
-  ]);
-
-  async function saveChanges() {
-    if (!hasUnsavedChanges || saving) return;
-
-    try {
-      setSaving(true);
-      setMessage("");
-
-      const response = await fetch(`/api/admin/orders/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderStatus,
-          paymentStatus,
-          adminNotes,
-
-          shipping: {
-            courier: courier || undefined,
-            trackingNumber: trackingNumber || undefined,
-            estimatedDeliveryDate: estimatedDeliveryDate
-              ? new Date(estimatedDeliveryDate)
-              : undefined,
-          },
-
-          payment: {
-            transactionId: transactionId || undefined,
-            gateway: gateway || undefined,
-            referenceNumber: referenceNumber || undefined,
-          },
-
-          trackingNote: trackingNote || undefined,
-          location: location || undefined,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message || "Failed to update order"
-        );
-      }
-
-      const updatedOrder: Order = result.data.order;
-
-      setOrder(updatedOrder);
-
-      setOrderStatus(updatedOrder.orderStatus);
-      setPaymentStatus(updatedOrder.paymentStatus);
-
-      setAdminNotes(updatedOrder.adminNotes || "");
-
-      setCourier(updatedOrder.shipping?.courier || "");
-      setTrackingNumber(
-        updatedOrder.shipping?.trackingNumber || ""
-      );
-
-      setEstimatedDeliveryDate(
-        updatedOrder.shipping?.estimatedDeliveryDate
-          ? new Date(updatedOrder.shipping.estimatedDeliveryDate)
-              .toISOString()
-              .split("T")[0]
-          : ""
-      );
-
-      setTransactionId(
-        updatedOrder.payment?.transactionId || ""
-      );
-
-      setGateway(updatedOrder.payment?.gateway || "");
-
-      setReferenceNumber(
-        updatedOrder.payment?.referenceNumber || ""
-      );
-
-      setTrackingNote("");
-      setLocation("");
-
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      console.error(error);
-
-      setMessage(
-        error?.message || "Failed to update order."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function cancelOrder() {
-    const reason = cancellationReason.trim();
-
-    if (!reason) return;
-
-    try {
-      setSaving(true);
-      setMessage("");
-
-      const response = await fetch(`/api/admin/orders/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderStatus: "cancelled",
-          cancellationReason: reason,
-          trackingNote: reason,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message || "Failed to cancel order"
-        );
-      }
-
-      setOrder(result.data.order);
-      setOrderStatus("cancelled");
-
-      setCancellationReason("");
-      setShowCancelModal(false);
-
-      setTrackingNote("");
-      setLocation("");
-
-      setMessage("Order cancelled successfully.");
-
-      setTimeout(() => {
-        setMessage("");
-      }, 3000);
-    } catch (error: any) {
-      console.error(error);
-
-      setMessage(
-        error?.message || "Failed to cancel order."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function downloadPaymentProof() {
     if (!order?.payment?.screenshotUrl) return;
 
@@ -531,14 +305,10 @@ export default function AdminOrderDetailPage() {
       setDownloadingProof(true);
       setMessage("");
 
-      const response = await fetch(
-        order.payment.screenshotUrl
-      );
+      const response = await fetch(order.payment.screenshotUrl);
 
       if (!response.ok) {
-        throw new Error(
-          "Failed to download payment proof."
-        );
+        throw new Error("Failed to download payment proof.");
       }
 
       const blob = await response.blob();
@@ -555,10 +325,7 @@ export default function AdminOrderDetailPage() {
 
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error(
-        "Payment proof download failed:",
-        error
-      );
+      console.error("Payment proof download failed:", error);
 
       setMessage(
         "Unable to download payment proof. Please try again."
@@ -581,6 +348,12 @@ export default function AdminOrderDetailPage() {
       setCopiedValue("");
     }
   }
+
+  const timeline = useMemo(() => {
+    if (!order?.trackingHistory) return [];
+
+    return [...order.trackingHistory].reverse();
+  }, [order]);
 
   if (loading) {
     return (
@@ -618,8 +391,7 @@ export default function AdminOrderDetailPage() {
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-white/50">
-              The order you are trying to access could not be
-              loaded.
+              The order you are trying to access could not be loaded.
             </p>
           </div>
 
@@ -636,10 +408,6 @@ export default function AdminOrderDetailPage() {
       </div>
     );
   }
-
-  const timeline = order.trackingHistory
-    ? [...order.trackingHistory].reverse()
-    : [];
 
   const totalQuantity = order.items.reduce(
     (sum, item) => sum + item.quantity,
@@ -691,7 +459,7 @@ export default function AdminOrderDetailPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#c5dda8]">
-                        Order Workspace
+                        Order View
                       </p>
 
                       <span className="h-1 w-1 rounded-full bg-white/20" />
@@ -709,10 +477,7 @@ export default function AdminOrderDetailPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          copyValue(
-                            order.orderNumber,
-                            "order"
-                          )
+                          copyValue(order.orderNumber, "order")
                         }
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 text-[10px] font-semibold text-white/45 transition hover:bg-white/10 hover:text-white"
                       >
@@ -731,77 +496,27 @@ export default function AdminOrderDetailPage() {
                     </div>
 
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45">
-                      Manage the complete order from one
-                      workspace — status, payment, delivery,
-                      customer details and internal operations.
+                      View complete order information, customer details,
+                      payment, delivery and tracking activity.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* HEADER ACTIONS */}
-              <div className="flex flex-wrap items-center gap-3">
-
-                {/* Current status */}
-                <div
-                  className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-bold ${statusClass(
+              {/* CURRENT STATUS ONLY */}
+              <div
+                className={`inline-flex w-fit items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-bold ${statusClass(
+                  order.orderStatus
+                )}`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${statusDotClass(
                     order.orderStatus
                   )}`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${statusDotClass(
-                      order.orderStatus
-                    )}`}
-                  />
+                />
 
-                  {orderStatusLabels[order.orderStatus] ||
-                    order.orderStatus}
-                </div>
-
-                {/* SINGLE SAVE BUTTON */}
-                <button
-                  type="button"
-                  onClick={saveChanges}
-                  disabled={saving || !hasUnsavedChanges}
-                  className={`group inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold transition ${
-                    hasUnsavedChanges
-                      ? "bg-[#c5dda8] text-[#10291d] shadow-[0_12px_30px_rgba(197,221,168,0.18)] hover:bg-[#d5e8bd] hover:shadow-[0_15px_35px_rgba(197,221,168,0.25)]"
-                      : "cursor-not-allowed bg-white/10 text-white/35"
-                  } disabled:cursor-not-allowed disabled:opacity-70`}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : hasUnsavedChanges ? (
-                    <>
-                      <Save className="h-4 w-4 transition group-hover:scale-110" />
-                      Save Changes
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Saved
-                    </>
-                  )}
-                </button>
-
-                {/* CANCEL */}
-                {order.orderStatus !== "cancelled" &&
-                  order.orderStatus !== "delivered" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowCancelModal(true)
-                      }
-                      disabled={saving}
-                      className="inline-flex min-h-[50px] items-center gap-2 rounded-2xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-400/20 disabled:opacity-50"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Cancel Order
-                    </button>
-                  )}
+                {orderStatusLabels[order.orderStatus] ||
+                  order.orderStatus}
               </div>
             </div>
 
@@ -857,7 +572,7 @@ export default function AdminOrderDetailPage() {
         </section>
 
         {/* =========================================================
-            ERROR / GENERAL MESSAGE
+            MESSAGE
         ========================================================= */}
         {message && (
           <div
@@ -1206,8 +921,7 @@ export default function AdminOrderDetailPage() {
 
                   <br />
 
-                  {order.shippingAddress.country ||
-                    "Pakistan"}
+                  {order.shippingAddress.country || "Pakistan"}
 
                   {order.shippingAddress.phone && (
                     <>
@@ -1291,8 +1005,7 @@ export default function AdminOrderDetailPage() {
 
                       <br />
 
-                      {order.billingAddress.country ||
-                        "Pakistan"}
+                      {order.billingAddress.country || "Pakistan"}
                     </address>
                   )}
                 </div>
@@ -1350,19 +1063,16 @@ export default function AdminOrderDetailPage() {
                   </div>
                 </div>
 
-                <textarea
-                  value={adminNotes}
-                  onChange={(e) =>
-                    setAdminNotes(e.target.value)
-                  }
-                  rows={5}
-                  placeholder="Add internal notes for your team..."
-                  className="mt-6 w-full resize-none rounded-[22px] border border-slate-200 bg-[#fafcf9] p-4 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                />
+                <div className="mt-6 min-h-[130px] rounded-[22px] border border-slate-100 bg-[#fafcf9] p-5">
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                    {order.adminNotes ||
+                      "No internal notes have been added to this order."}
+                  </p>
 
-                <p className="mt-2 text-[10px] text-slate-400">
-                  These notes are for internal use only.
-                </p>
+                  <p className="mt-4 text-[10px] text-slate-400">
+                    Internal notes are visible to administrators only.
+                  </p>
+                </div>
               </section>
             </div>
 
@@ -1458,9 +1168,7 @@ export default function AdminOrderDetailPage() {
                               </span>
 
                               <span className="text-[10px] font-medium text-slate-400">
-                                {formatDateTime(
-                                  history.createdAt
-                                )}
+                                {formatDateTime(history.createdAt)}
                               </span>
                             </div>
 
@@ -1530,11 +1238,11 @@ export default function AdminOrderDetailPage() {
           </main>
 
           {/* =======================================================
-              RIGHT CONTROL PANEL
+              RIGHT READ-ONLY INFORMATION PANEL
           ======================================================= */}
           <aside className="space-y-6 xl:sticky xl:top-5">
 
-            {/* CONTROL CENTER */}
+            {/* ORDER INFORMATION */}
             <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_14px_45px_rgba(15,23,42,0.07)]">
 
               <div className="relative overflow-hidden bg-[#10291d] p-5 sm:p-6">
@@ -1545,212 +1253,131 @@ export default function AdminOrderDetailPage() {
 
                   <div>
                     <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#c5dda8]">
-                      Control Center
+                      Order Information
                     </p>
 
                     <h2 className="mt-1.5 text-lg font-bold text-white">
-                      Update Order
+                      Order Details
                     </h2>
 
                     <p className="mt-1 text-[11px] leading-5 text-white/40">
-                      Edit order controls and save everything together.
+                      Current information from the database.
                     </p>
                   </div>
 
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                      hasUnsavedChanges
-                        ? "bg-amber-400/10 text-amber-300"
-                        : "bg-emerald-400/10 text-emerald-300"
-                    }`}
-                  >
-                    {hasUnsavedChanges ? (
-                      <Clock3 className="h-4 w-4" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
+                    <Check className="h-4 w-4" />
                   </div>
-                </div>
-
-                <div className="relative mt-5 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2.5">
-
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      hasUnsavedChanges
-                        ? "bg-amber-400"
-                        : "bg-emerald-400"
-                    }`}
-                  />
-
-                  <span className="text-[10px] font-semibold text-white/50">
-                    {hasUnsavedChanges
-                      ? "You have unsaved changes"
-                      : "All changes saved"}
-                  </span>
                 </div>
               </div>
 
-              <div className="space-y-6 p-5 sm:p-6">
+              <div className="space-y-5 p-5 sm:p-6">
 
                 {/* ORDER STATUS */}
                 <div>
+                  <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Order Status
+                  </p>
 
-                  <div className="mb-2.5 flex items-end justify-between gap-3">
+                  <div
+                    className={`flex min-h-[52px] items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-sm font-bold ${statusClass(
+                      order.orderStatus
+                    )}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${statusDotClass(
+                          order.orderStatus
+                        )}`}
+                      />
 
-                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Order Status
-                    </label>
-
-                    <span className="text-[9px] font-medium text-slate-400">
-                      Current:{" "}
-                      {orderStatusLabels[order.orderStatus]}
+                      {orderStatusLabels[order.orderStatus] ||
+                        order.orderStatus}
                     </span>
-                  </div>
 
-                  <div className="relative">
-
-                    <select
-                      value={orderStatus}
-                      onChange={(e) =>
-                        setOrderStatus(e.target.value)
-                      }
-                      className="h-[52px] w-full appearance-none rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 pr-11 text-sm font-bold text-slate-800 outline-none transition hover:border-slate-300 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                    >
-                      {orderStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {orderStatusLabels[status]}
-                        </option>
-                      ))}
-                    </select>
-
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <span className="text-[9px] font-semibold opacity-60">
+                      Read only
+                    </span>
                   </div>
                 </div>
 
                 {/* PAYMENT STATUS */}
                 <div>
+                  <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Payment Status
+                  </p>
 
-                  <div className="mb-2.5 flex items-end justify-between gap-3">
+                  <div
+                    className={`flex min-h-[52px] items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-sm font-bold ${statusClass(
+                      order.paymentStatus
+                    )}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${statusDotClass(
+                          order.paymentStatus
+                        )}`}
+                      />
 
-                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Payment Status
-                    </label>
-
-                    <span className="text-[9px] font-medium text-slate-400">
-                      Current:{" "}
                       {paymentStatusLabels[
                         order.paymentStatus
                       ] || order.paymentStatus}
                     </span>
-                  </div>
 
-                  <div className="relative">
-
-                    <select
-                      value={paymentStatus}
-                      onChange={(e) =>
-                        setPaymentStatus(e.target.value)
-                      }
-                      className="h-[52px] w-full appearance-none rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 pr-11 text-sm font-bold text-slate-800 outline-none transition hover:border-slate-300 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                    >
-                      {paymentStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {paymentStatusLabels[status]}
-                        </option>
-                      ))}
-                    </select>
-
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <span className="text-[9px] font-semibold opacity-60">
+                      Read only
+                    </span>
                   </div>
                 </div>
 
-                {/* TRACKING UPDATE */}
-                <div className="border-t border-slate-100 pt-6">
+                {/* PAYMENT METHOD */}
+                <ReadOnlyField
+                  label="Payment Method"
+                  value={
+                    paymentMethods[order.paymentMethod] ||
+                    order.paymentMethod
+                  }
+                />
 
-                  <div className="mb-4">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Activity Update
-                    </p>
+                {/* DATABASE INFO */}
+                <div className="border-t border-slate-100 pt-5">
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      Add a note and location to the next tracking event.
-                    </p>
-                  </div>
+                  <p className="mb-4 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Order Record
+                  </p>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
 
-                    <div>
-                      <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                        Tracking Note
-                      </label>
+                    <div className="flex items-center justify-between gap-4 rounded-[16px] bg-[#fafcf9] px-4 py-3">
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        Order ID
+                      </span>
 
-                      <textarea
-                        value={trackingNote}
-                        onChange={(e) =>
-                          setTrackingNote(e.target.value)
-                        }
-                        rows={3}
-                        placeholder="e.g. Package handed over to courier..."
-                        className="w-full resize-none rounded-[18px] border border-slate-200 bg-[#fafcf9] p-3.5 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                      />
+                      <span className="max-w-[190px] truncate font-mono text-[10px] font-semibold text-slate-600">
+                        {order._id}
+                      </span>
                     </div>
 
-                    <div>
+                    <div className="flex items-center justify-between gap-4 rounded-[16px] bg-[#fafcf9] px-4 py-3">
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        Created
+                      </span>
 
-                      <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                        Location
-                      </label>
-
-                      <div className="relative">
-
-                        <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                        <input
-                          value={location}
-                          onChange={(e) =>
-                            setLocation(e.target.value)
-                          }
-                          placeholder="e.g. Karachi Warehouse"
-                          className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] pl-10 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                        />
-                      </div>
+                      <span className="text-[10px] font-semibold text-slate-600">
+                        {formatDateTime(order.createdAt)}
+                      </span>
                     </div>
-                  </div>
-                </div>
 
-                {/* SAVE INFORMATION */}
-                <div className="border-t border-slate-100 pt-6">
+                    <div className="flex items-center justify-between gap-4 rounded-[16px] bg-[#fafcf9] px-4 py-3">
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        Last Updated
+                      </span>
 
-                  <div className="rounded-[18px] border border-slate-100 bg-[#fafcf9] p-3.5">
-                    <div className="flex items-start gap-3">
-
-                      <div
-                        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                          hasUnsavedChanges
-                            ? "bg-amber-50 text-amber-600"
-                            : "bg-emerald-50 text-emerald-600"
-                        }`}
-                      >
-                        {hasUnsavedChanges ? (
-                          <Clock3 className="h-4 w-4" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-bold text-slate-700">
-                          {hasUnsavedChanges
-                            ? "Changes ready to save"
-                            : "Order is fully saved"}
-                        </p>
-
-                        <p className="mt-1 text-[10px] leading-5 text-slate-400">
-                          Use the single Save Changes button in
-                          the header to apply all updates.
-                        </p>
-                      </div>
+                      <span className="text-[10px] font-semibold text-slate-600">
+                        {formatDateTime(order.updatedAt)}
+                      </span>
                     </div>
+
                   </div>
                 </div>
               </div>
@@ -1778,35 +1405,24 @@ export default function AdminOrderDetailPage() {
 
               <div className="mt-6 space-y-5">
 
-                <div>
-                  <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Courier
-                  </label>
-
-                  <input
-                    value={courier}
-                    onChange={(e) =>
-                      setCourier(e.target.value)
-                    }
-                    placeholder="e.g. TCS, Leopards"
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
-                </div>
+                <ReadOnlyField
+                  label="Courier"
+                  value={order.shipping?.courier}
+                />
 
                 <div>
-
                   <div className="mb-2 flex items-center justify-between">
 
-                    <label className="block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
                       Tracking Number
                     </label>
 
-                    {trackingNumber && (
+                    {order.shipping?.trackingNumber && (
                       <button
                         type="button"
                         onClick={() =>
                           copyValue(
-                            trackingNumber,
+                            order.shipping?.trackingNumber || "",
                             "tracking"
                           )
                         }
@@ -1827,35 +1443,23 @@ export default function AdminOrderDetailPage() {
                     )}
                   </div>
 
-                  <input
-                    value={trackingNumber}
-                    onChange={(e) =>
-                      setTrackingNumber(e.target.value)
-                    }
-                    placeholder="Tracking number"
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
+                  <div className="min-h-[50px] rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 py-3.5 font-mono text-xs font-semibold text-slate-700">
+                    {order.shipping?.trackingNumber || "—"}
+                  </div>
                 </div>
 
-                <div>
+                <ReadOnlyField
+                  label="Estimated Delivery"
+                  value={
+                    order.shipping?.estimatedDeliveryDate
+                      ? formatDate(
+                          order.shipping.estimatedDeliveryDate
+                        )
+                      : "Not specified"
+                  }
+                />
 
-                  <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Estimated Delivery
-                  </label>
-
-                  <input
-                    type="date"
-                    value={estimatedDeliveryDate}
-                    onChange={(e) =>
-                      setEstimatedDeliveryDate(
-                        e.target.value
-                      )
-                    }
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="grid gap-3">
 
                   {order.shipping?.shippedAt && (
                     <div className="rounded-[18px] border border-indigo-100 bg-indigo-50 p-4">
@@ -1891,6 +1495,15 @@ export default function AdminOrderDetailPage() {
                       </p>
                     </div>
                   )}
+
+                  {!order.shipping?.shippedAt &&
+                    !order.shipping?.deliveredAt && (
+                      <div className="rounded-[18px] border border-dashed border-slate-200 bg-[#fafcf9] p-4 text-center">
+                        <p className="text-xs font-semibold text-slate-400">
+                          No shipping events recorded yet.
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
             </section>
@@ -1945,19 +1558,18 @@ export default function AdminOrderDetailPage() {
 
                 {/* Transaction */}
                 <div>
-
                   <div className="mb-2 flex items-center justify-between">
 
                     <label className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
                       Transaction ID
                     </label>
 
-                    {transactionId && (
+                    {order.payment?.transactionId && (
                       <button
                         type="button"
                         onClick={() =>
                           copyValue(
-                            transactionId,
+                            order.payment?.transactionId || "",
                             "transaction"
                           )
                         }
@@ -1978,49 +1590,23 @@ export default function AdminOrderDetailPage() {
                     )}
                   </div>
 
-                  <input
-                    value={transactionId}
-                    onChange={(e) =>
-                      setTransactionId(e.target.value)
-                    }
-                    placeholder="Transaction ID"
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
+                  <div className="min-h-[50px] rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 py-3.5 font-mono text-xs font-semibold text-slate-700">
+                    {order.payment?.transactionId || "—"}
+                  </div>
                 </div>
 
                 {/* Gateway */}
-                <div>
-
-                  <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Gateway
-                  </label>
-
-                  <input
-                    value={gateway}
-                    onChange={(e) =>
-                      setGateway(e.target.value)
-                    }
-                    placeholder="e.g. JazzCash"
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
-                </div>
+                <ReadOnlyField
+                  label="Gateway"
+                  value={order.payment?.gateway}
+                />
 
                 {/* Reference */}
-                <div>
-
-                  <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Reference Number
-                  </label>
-
-                  <input
-                    value={referenceNumber}
-                    onChange={(e) =>
-                      setReferenceNumber(e.target.value)
-                    }
-                    placeholder="Reference number"
-                    className="h-[50px] w-full rounded-[18px] border border-slate-200 bg-[#fafcf9] px-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#315c42] focus:bg-white focus:ring-4 focus:ring-[#315c42]/5"
-                  />
-                </div>
+                <ReadOnlyField
+                  label="Reference Number"
+                  value={order.payment?.referenceNumber}
+                  mono
+                />
 
                 {/* Payment proof */}
                 {order.payment?.screenshotUrl && (
@@ -2128,258 +1714,33 @@ export default function AdminOrderDetailPage() {
                 )}
               </div>
             </section>
-          </aside>
-        </div>
-      </div>
 
-      {/* =========================================================
-          CANCEL MODAL
-      ========================================================= */}
-      {showCancelModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07130d]/65 px-4 py-6 backdrop-blur-md">
+            {/* READ ONLY NOTICE */}
+            <section className="rounded-[24px] border border-[#dce5dd] bg-[#fafcf9] p-5">
 
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              if (!saving) {
-                setShowCancelModal(false);
-                setCancellationReason("");
-              }
-            }}
-          />
-
-          <div className="relative w-full max-w-[480px] overflow-hidden rounded-[30px] border border-white/70 bg-white shadow-[0_35px_120px_rgba(0,0,0,0.25)]">
-
-            <div className="relative overflow-hidden bg-[#10291d] px-6 py-7">
-
-              <div className="pointer-events-none absolute -right-14 -top-20 h-48 w-48 rounded-full bg-red-400/10 blur-3xl" />
-
-              <div className="relative flex items-start justify-between gap-4">
-
-                <div className="flex items-center gap-3.5">
-
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-red-400/10 text-red-300">
-                    <XCircle className="h-5 w-5" />
-                  </div>
-
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-300/60">
-                      Destructive Action
-                    </p>
-
-                    <h2 className="mt-1 text-xl font-bold text-white">
-                      Cancel Order
-                    </h2>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!saving) {
-                      setShowCancelModal(false);
-                      setCancellationReason("");
-                    }
-                  }}
-                  disabled={saving}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/50 transition hover:bg-white/15 hover:text-white disabled:opacity-40"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="relative mt-6 rounded-[18px] border border-white/10 bg-white/[0.05] p-4">
-
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/30">
-                  Order
-                </p>
-
-                <p className="mt-1 text-sm font-bold text-white">
-                  #{order.orderNumber}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-6 sm:p-7">
-
-              <p className="text-sm leading-6 text-slate-500">
-                Cancelling this order will change its status to
-                cancelled. Please record a reason for your team.
-              </p>
-
-              <label className="mt-6 mb-2 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Cancellation Reason
-              </label>
-
-              <textarea
-                autoFocus
-                value={cancellationReason}
-                onChange={(e) =>
-                  setCancellationReason(e.target.value)
-                }
-                rows={5}
-                placeholder="e.g. Customer requested cancellation..."
-                className="w-full resize-none rounded-[20px] border border-slate-200 bg-[#fafcf9] p-4 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-100"
-              />
-
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!saving) {
-                      setShowCancelModal(false);
-                      setCancellationReason("");
-                    }
-                  }}
-                  disabled={saving}
-                  className="h-12 rounded-[16px] border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Keep Order
-                </button>
-
-                <button
-                  type="button"
-                  onClick={cancelOrder}
-                  disabled={
-                    saving || !cancellationReason.trim()
-                  }
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] bg-red-600 px-5 text-sm font-bold text-white shadow-lg shadow-red-600/10 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-
-                  {saving
-                    ? "Cancelling..."
-                    : "Cancel Order"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================
-          SUCCESS MODAL
-      ========================================================= */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#07130d]/70 px-4 py-6 backdrop-blur-md">
-
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setShowSuccessModal(false);
-              router.push("/admin/orders");
-            }}
-          />
-
-          <div className="relative w-full max-w-[460px] overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-[0_35px_120px_rgba(0,0,0,0.28)]">
-
-            {/* MODAL HEADER */}
-            <div className="relative overflow-hidden bg-[#10291d] px-6 py-8 text-center sm:px-8">
-
-              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#315c42]/50 blur-3xl" />
-
-              <div className="pointer-events-none absolute -bottom-24 -left-16 h-44 w-44 rounded-full bg-[#c5dda8]/10 blur-3xl" />
-
-              <div className="relative mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-emerald-300/20 bg-emerald-400/10 shadow-[0_15px_40px_rgba(16,185,129,0.08)]">
-
-                <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[20px] bg-emerald-400/15">
-                  <CheckCircle2 className="h-7 w-7 text-emerald-300" />
-                </div>
-              </div>
-
-              <p className="relative mt-6 text-[9px] font-bold uppercase tracking-[0.24em] text-[#c5dda8]">
-                Update Complete
-              </p>
-
-              <h2 className="relative mt-2 text-2xl font-bold tracking-tight text-white sm:text-[28px]">
-                Order Updated Successfully
-              </h2>
-
-              <p className="relative mx-auto mt-3 max-w-sm text-sm leading-6 text-white/45">
-                All changes for this order have been saved successfully.
-              </p>
-            </div>
-
-            {/* MODAL BODY */}
-            <div className="p-6 sm:p-7">
-
-              <div className="rounded-[22px] border border-slate-100 bg-[#fafcf9] p-4">
-
-                <div className="flex items-center justify-between gap-4">
-
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Updated Order
-                    </p>
-
-                    <p className="mt-1.5 text-sm font-bold text-[#17231c]">
-                      #{order.orderNumber}
-                    </p>
-                  </div>
-
-                  <div
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-bold ${statusClass(
-                      order.orderStatus
-                    )}`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${statusDotClass(
-                        order.orderStatus
-                      )}`}
-                    />
-
-                    {orderStatusLabels[order.orderStatus] ||
-                      order.orderStatus}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-start gap-3">
+              <div className="flex items-start gap-3">
 
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#edf3e9] text-[#315c42]">
                   <Check className="h-4 w-4" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    Everything is up to date
+                  <p className="text-xs font-bold text-[#17231c]">
+                    Read-only order view
                   </p>
 
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    You can return to the orders list to continue
-                    managing other orders.
+                  <p className="mt-1 text-[10px] leading-5 text-slate-400">
+                    This page only displays order information. Order
+                    changes should be made from the dedicated Edit Order
+                    page.
                   </p>
                 </div>
+
               </div>
-
-              {/* OK BUTTON */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  router.push("/admin/orders");
-                }}
-                className="mt-7 flex h-[54px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#10291d] text-sm font-bold text-white shadow-[0_14px_30px_rgba(16,41,29,0.15)] transition hover:bg-[#193b29] hover:shadow-[0_18px_35px_rgba(16,41,29,0.2)]"
-              >
-                <Check className="h-4 w-4 text-[#c5dda8]" />
-
-                OK, Back to Orders
-
-                <ArrowLeft className="ml-1 h-4 w-4 rotate-180 text-white/50" />
-              </button>
-
-              <p className="mt-3 text-center text-[9px] font-medium text-slate-400">
-                Click OK to return to the orders dashboard.
-              </p>
-            </div>
-          </div>
+            </section>
+          </aside>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -431,25 +431,43 @@ export default function ProductImageUploader({
                   {/* REMOVE */}
 
                   <button
-                    type="button"
-                    onClick={(
-                      event
-                    ) => {
-                      event.stopPropagation();
-                      removeImage(
-                        index
-                      );
-                    }}
-                    disabled={
-                      uploading
-                    }
-                    aria-label={`Remove image ${
-                      index + 1
-                    }`}
-                    className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[#66736b] opacity-0 shadow-sm transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+  type="button"
+  onClick={(event) => {
+    event.stopPropagation();
+    removeImage(index);
+  }}
+  disabled={uploading}
+  aria-label={`Remove image ${index + 1}`}
+  className="
+    absolute
+    right-2.5
+    top-2.5
+    z-20
+    flex
+    h-8
+    w-8
+    items-center
+    justify-center
+    rounded-full
+    bg-red-600
+    text-white
+    shadow-[0_4px_12px_rgba(220,38,38,0.35)]
+    ring-2
+    ring-white/90
+    transition-all
+    duration-200
+    hover:scale-110
+    hover:bg-red-700
+    hover:shadow-[0_6px_16px_rgba(220,38,38,0.45)]
+    disabled:cursor-not-allowed
+    disabled:opacity-50
+  "
+>
+  <X
+    className="h-4 w-4"
+    strokeWidth={2.5}
+  />
+</button>
                 </div>
               )
             )}

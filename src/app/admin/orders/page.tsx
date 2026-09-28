@@ -206,6 +206,8 @@ export default function AdminOrdersPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [deleteOrder, setDeleteOrder] = useState<Order | null>(null);
+const [deleting, setDeleting] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -261,6 +263,46 @@ export default function AdminOrdersPage() {
 
     return () => clearTimeout(timer);
   }, [fetchOrders]);
+
+  async function handleDeleteOrder() {
+  if (!deleteOrder) return;
+
+  try {
+    setDeleting(true);
+
+    const response = await fetch(
+      `/api/admin/orders/${deleteOrder._id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || "Failed to delete order"
+      );
+    }
+
+    setDeleteOrder(null);
+
+    await fetchOrders();
+  } catch (error: any) {
+    console.error("Delete order error:", error);
+
+    alert(
+      error?.message ||
+        "Failed to delete order. Please try again."
+    );
+  } finally {
+    setDeleting(false);
+  }
+}
+
+function openDeleteModal(order: Order) {
+  setDeleteOrder(order);
+}
 
   function clearFilters() {
     setSearch("");
@@ -1145,15 +1187,35 @@ export default function AdminOrdersPage() {
 
                           {/* Action */}
                           <td className="px-7 py-5 text-right">
-                            <Link
-                              href={`/admin/orders/${order._id}`}
-                              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#dce5dd] bg-white px-3.5 text-[11px] font-bold text-[#536158] shadow-sm transition hover:border-[#315c42] hover:bg-[#edf3e9] hover:text-[#10291d]"
-                              aria-label={`View order ${order.orderNumber}`}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              View
-                            </Link>
-                          </td>
+  <div className="flex items-center justify-end gap-2">
+    <Link
+      href={`/admin/orders/${order._id}`}
+      className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#dce5dd] bg-white px-3.5 text-[11px] font-bold text-[#536158] shadow-sm transition hover:border-[#315c42] hover:bg-[#edf3e9] hover:text-[#10291d]"
+      aria-label={`View order ${order.orderNumber}`}
+    >
+      <Eye className="h-3.5 w-3.5" />
+      View
+    </Link>
+
+    <Link
+      href={`/admin/orders/${order._id}/edit`}
+      className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#dce5dd] bg-white px-3.5 text-[11px] font-bold text-[#536158] shadow-sm transition hover:border-[#315c42] hover:bg-[#edf3e9] hover:text-[#10291d]"
+      aria-label={`Edit order ${order.orderNumber}`}
+    >
+      Edit
+    </Link>
+
+    <button
+      type="button"
+      onClick={() => openDeleteModal(order)}
+      className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#edd0d0] bg-white px-3.5 text-[11px] font-bold text-[#a45656] shadow-sm transition hover:border-[#d9aaaa] hover:bg-[#fdf5f5]"
+      aria-label={`Delete order ${order.orderNumber}`}
+    >
+      <XCircle className="h-3.5 w-3.5" />
+      Delete
+    </button>
+  </div>
+</td>
                         </tr>
                       );
                     })}
@@ -1415,10 +1477,91 @@ export default function AdminOrdersPage() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+              
             </div>
+            
           )}
         </section>
-      </div>
+        
+           </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteOrder && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#10291d]/40 px-4 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !deleting) {
+              setDeleteOrder(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-[460px] overflow-hidden rounded-[28px] border border-[#e1e8e1] bg-white shadow-[0_30px_100px_rgba(16,41,29,0.22)]">
+            <div className="p-6 sm:p-7">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#fdf1f1] text-[#a45656]">
+                  <XCircle className="h-6 w-6" />
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold tracking-[-0.025em] text-[#17231c]">
+                    Delete this order?
+                  </h3>
+
+                  <p className="mt-1.5 text-sm leading-6 text-[#89948d]">
+                    This action cannot be undone. The order will
+                    be permanently removed from the system.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[17px] border border-[#edf1ed] bg-[#f8faf7] p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#9aa49e]">
+                  Order
+                </p>
+
+                <p className="mt-1 text-sm font-black text-[#10291d]">
+                  #{deleteOrder.orderNumber}
+                </p>
+
+                <p className="mt-1 text-xs text-[#718078]">
+                  {deleteOrder.customerInfo.firstName}{" "}
+                  {deleteOrder.customerInfo.lastName}
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setDeleteOrder(null)}
+                  className="h-11 rounded-xl border border-[#dce5dd] bg-white px-5 text-sm font-bold text-[#536158] transition hover:bg-[#f6f8f5] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDeleteOrder}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#a45656] px-5 text-sm font-bold text-white transition hover:bg-[#914949] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4" />
+                      Delete Order
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
