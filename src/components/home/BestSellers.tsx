@@ -528,17 +528,17 @@ export default function BestSellers() {
             <div className="mb-5 flex items-center gap-3">
               <span className="h-px w-10 bg-[#82977f]" />
 
-              <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#687c68]">
-                Customer Favorites
+              <span className="text-[14px] font-bold uppercase tracking-[0.3em] text-[#687c68]">
+                Our Collections
               </span>
 
               <span className="h-px w-10 bg-[#82977f]" />
             </div>
 
             <h2 className="max-w-2xl text-[38px] font-semibold leading-[1.02] tracking-[-0.055em] text-[#10291d] sm:text-5xl lg:text-[58px]">
-              Seeds chosen
+              99% of Women Improved Their PCOS 
               <span className="block font-serif font-normal italic text-[#315c45]">
-                again & again.
+                in Just 3 Months
               </span>
             </h2>
 

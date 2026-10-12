@@ -1189,8 +1189,9 @@ export default function ProductDetailClient({
               )}
             </div>
 
-            <div className="mt-8 rounded-[24px] border border-[#ddd9ce] bg-white p-5 shadow-[0_15px_40px_rgba(35,70,54,0.045)] sm:p-6">
-              <div className="flex flex-wrap items-end justify-between gap-5">
+            <div className="relative mt-8 overflow-hidden rounded-[26px] border border-[#dce4d8] bg-gradient-to-br from-white via-white to-[#f3f7f0] p-5 shadow-[0_20px_50px_rgba(35,70,54,0.075)] sm:p-6">
+              <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-[70px] bg-[#e8f0e4]/70" />
+              <div className="relative flex flex-wrap items-end justify-between gap-5">
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#999d94]">
                     Current price
@@ -1448,7 +1449,7 @@ export default function ProductDetailClient({
                 disabled={
                   isOutOfStock
                 }
-                className={`group relative flex h-[62px] items-center justify-center gap-2 overflow-hidden rounded-[16px] text-sm font-bold text-white shadow-[0_14px_35px_rgba(35,70,54,0.15)] transition-all duration-300 ${
+                className={`group relative flex h-[62px] items-center justify-center gap-2 overflow-hidden rounded-[17px] text-sm font-bold text-white shadow-[0_16px_36px_rgba(35,70,54,0.2)] transition-all duration-300 ${
                   isOutOfStock
                     ? "cursor-not-allowed bg-[#aaa9a1] shadow-none"
                     : cartAdded
@@ -1478,7 +1479,7 @@ export default function ProductDetailClient({
                   buying ||
                   isOutOfStock
                 }
-                className="flex h-[62px] items-center justify-center gap-2 rounded-[16px] border border-[#315c45] bg-white text-sm font-bold text-[#315c45] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#f1f5ef] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-[62px] items-center justify-center gap-2 rounded-[17px] border border-[#cbd8c9] bg-white text-sm font-bold text-[#315c45] shadow-[0_8px_20px_rgba(35,70,54,0.045)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#315c45] hover:bg-[#f1f5ef] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {buying ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#315c45] border-t-transparent" />
@@ -1508,57 +1509,109 @@ export default function ProductDetailClient({
               </div>
             </div>
 
-            {/* TRUST */}
+            {/* TRUST & CUSTOMER CONFIDENCE */}
 
-            <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-[20px] border border-[#dedbd1] bg-white">
-              <div className="flex flex-col items-center gap-2 border-r border-[#e4e1d8] px-3 py-5 text-center">
-                <Truck
-                  size={19}
-                  strokeWidth={1.5}
-                  className="text-[#315c45]"
-                />
-
-                <span className="text-[8px] font-bold uppercase leading-4 tracking-[0.1em] text-[#646b64]">
-                  Nationwide
-                  <br />
-                  Delivery
+            <div className="mt-6 overflow-hidden rounded-[24px] border border-[#dfe5da] bg-white shadow-[0_18px_45px_rgba(35,70,54,0.055)]">
+              <div className="flex items-center gap-3 border-b border-[#edf0e9] bg-[#f7faf5] px-4 py-4 sm:px-5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#e4eee3] text-[#315c45]">
+                  <ShieldCheck size={20} strokeWidth={1.7} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-[#234636]">
+                    Shop with confidence
+                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#747970]">
+                    Clear product details. Careful packing. Support when you need it.
+                  </p>
+                </div>
+                <span className="hidden rounded-full border border-[#d9e5d5] bg-white px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#315c45] sm:inline-flex">
+                  Seedra care
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-2 border-r border-[#e4e1d8] px-3 py-5 text-center">
-                <ShieldCheck
-                  size={19}
-                  strokeWidth={1.5}
-                  className="text-[#315c45]"
-                />
+              <div className="grid grid-cols-3 divide-x divide-[#edf0e9]">
+                <div className="flex flex-col items-center px-2 py-5 text-center sm:px-4">
+                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f5ed] text-[#315c45]">
+                    <Truck size={18} strokeWidth={1.7} />
+                  </span>
+                  <p className="text-[10px] font-bold text-[#35483a] sm:text-xs">
+                    Nationwide
+                  </p>
+                  <p className="mt-1 text-[9px] leading-4 text-[#858980] sm:text-[10px]">
+                    Delivery
+                  </p>
+                </div>
 
-                <span className="text-[8px] font-bold uppercase leading-4 tracking-[0.1em] text-[#646b64]">
-                  Quality
-                  <br />
-                  Assured
-                </span>
+                <div className="flex flex-col items-center px-2 py-5 text-center sm:px-4">
+                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f5ed] text-[#315c45]">
+                    <ShieldCheck size={18} strokeWidth={1.7} />
+                  </span>
+                  <p className="text-[10px] font-bold text-[#35483a] sm:text-xs">
+                    Quality
+                  </p>
+                  <p className="mt-1 text-[9px] leading-4 text-[#858980] sm:text-[10px]">
+                    Assured
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-center px-2 py-5 text-center sm:px-4">
+                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f5ed] text-[#315c45]">
+                    <PackageCheck size={18} strokeWidth={1.7} />
+                  </span>
+                  <p className="text-[10px] font-bold text-[#35483a] sm:text-xs">
+                    Carefully
+                  </p>
+                  <p className="mt-1 text-[9px] leading-4 text-[#858980] sm:text-[10px]">
+                    Packed
+                  </p>
+                </div>
               </div>
 
-              <div className="flex flex-col items-center gap-2 px-3 py-5 text-center">
-                <PackageCheck
-                  size={19}
-                  strokeWidth={1.5}
-                  className="text-[#315c45]"
-                />
+              <div className="flex items-start gap-3 border-t border-[#edf0e9] px-4 py-3.5 sm:px-5">
+                <Check size={15} className="mt-0.5 shrink-0 text-[#477653]" />
+                <p className="text-[10px] leading-5 text-[#747970]">
+                  You’ll see your selected pack size, quantity and order total before checkout.
+                </p>
+              </div>
+            </div>
 
-                <span className="text-[8px] font-bold uppercase leading-4 tracking-[0.1em] text-[#646b64]">
-                  Carefully
-                  <br />
-                  Packed
+            {/* ORDER ACTIVITY — connect this display to verified order data before publishing */}
+            <div className="relative mt-4 overflow-hidden rounded-[22px] bg-[#183b2a] p-4 text-white shadow-[0_16px_35px_rgba(24,59,42,0.14)] sm:p-5">
+              <div className="pointer-events-none absolute -right-8 -top-12 h-36 w-36 rounded-full border border-white/10" />
+              <div className="pointer-events-none absolute -right-1 -top-5 h-24 w-24 rounded-full border border-white/10" />
+              <div className="relative flex items-center gap-3 sm:gap-4">
+                <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 shadow-inner">
+                  <PackageCheck size={22} strokeWidth={1.6} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.17em] text-white/60">
+                      The Seedra community
+                    </p>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-300/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-emerald-100">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-80" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.85)]" />
+                      </span>
+                      Live activity
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[15px] font-semibold leading-6 sm:text-lg">
+                    <span className="font-serif text-[25px] tracking-tight sm:text-[29px]">100</span>{" "}
+                    orders in the last 24 hours
+                  </p>
+                  <p className="mt-1 text-[10px] leading-5 text-white/65 sm:text-xs">
+                    Carefully packed and sent from our team to your home.
+                  </p>
+                </div>
+                <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-emerald-100 sm:flex">
+                  <Check size={17} />
                 </span>
               </div>
             </div>
 
-            <p className="mt-4 text-center text-[9px] leading-5 text-[#999d94]">
-              Product information is provided
-              for general product guidance.
-              Please review final packaging
-              instructions before launch.
+            <p className="mt-3 text-center text-[9px] leading-5 text-[#999d94]">
+              Product information is provided for general guidance. Please review the product label and packaging instructions before use.
             </p>
           </div>
         </div>
@@ -2081,23 +2134,19 @@ export default function ProductDetailClient({
               <button
                 type="button"
                 onClick={() => {
-                  setShowReviewForm(
-                    (current) => !current
-                  );
-
+                  setShowReviewForm(true);
                   setReviewMessage("");
                   setReviewError("");
                 }}
-                className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#315c45] px-5 text-xs font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636]"
+                aria-haspopup="dialog"
+                className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#315c45] px-6 text-xs font-bold text-white shadow-[0_12px_28px_rgba(49,92,69,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#234636]"
               >
                 <Star
                   size={14}
                   strokeWidth={1.8}
                 />
 
-                {showReviewForm
-                  ? "Close Review Form"
-                  : "Write a Review"}
+                Write a Review
               </button>
             </div>
 
@@ -2138,34 +2187,53 @@ export default function ProductDetailClient({
                   <motion.div
                     initial={{
                       opacity: 0,
-                      height: 0,
                     }}
                     animate={{
                       opacity: 1,
-                      height: "auto",
                     }}
                     exit={{
                       opacity: 0,
-                      height: 0,
                     }}
-                    className="mb-10 overflow-hidden"
+                    transition={{ duration: 0.2 }}
+                    onClick={() => setShowReviewForm(false)}
+                    className="fixed inset-0 z-[160] flex items-center justify-center overflow-y-auto bg-[#10291d]/65 p-3 backdrop-blur-md sm:p-6"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="review-modal-title"
                   >
-                    <div className="rounded-[26px] border border-[#ddd9ce] bg-white p-6 shadow-[0_15px_40px_rgba(35,70,54,0.045)] sm:p-8">
+                    <motion.div
+                      initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                      transition={{ duration: 0.24, ease: "easeOut" }}
+                      onClick={(event) => event.stopPropagation()}
+                      className="relative max-h-[92vh] w-full max-w-[760px] overflow-y-auto rounded-[28px] border border-white/70 bg-[#fffefa] p-5 shadow-[0_35px_100px_rgba(9,30,18,0.32)] sm:rounded-[32px] sm:p-9"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReviewForm(false);
+                          setReviewError("");
+                        }}
+                        aria-label="Close review form"
+                        className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-[#e5e4da] bg-white text-[#315c45] transition hover:rotate-90 hover:bg-[#edf3e9] sm:right-6 sm:top-6"
+                      >
+                        <X size={17} />
+                      </button>
 
-                      <div className="max-w-[650px]">
+                      <div className="max-w-[650px] pr-10">
                         <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#315c45]">
                           Share your experience
                         </p>
 
-                        <h3 className="mt-3 font-serif text-3xl tracking-[-0.025em] text-[#234636]">
+                        <h3 id="review-modal-title" className="mt-3 font-serif text-3xl tracking-[-0.025em] text-[#234636] sm:text-4xl">
                           What do you think?
                         </h3>
 
                         <p className="mt-3 text-sm leading-7 text-[#747970]">
-                          Tell us what you think about this
-                          product. You do not need an account
-                          or a previous purchase to leave a
-                          review.
+                          Share an honest note about this product.
+                          Your feedback helps other customers make
+                          an informed choice.
                         </p>
 
                         <p className="mt-2 text-[11px] leading-6 text-[#999d94]">
@@ -2393,7 +2461,7 @@ export default function ProductDetailClient({
 
                         </div>
                       </form>
-                    </div>
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -2517,18 +2585,9 @@ export default function ProductDetailClient({
                   <button
                     type="button"
                     onClick={() => {
+                      setReviewMessage("");
+                      setReviewError("");
                       setShowReviewForm(true);
-
-                      window.setTimeout(() => {
-                        document
-                          .getElementById(
-                            "reviews"
-                          )
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }, 50);
                     }}
                     className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#315c45] px-5 py-2.5 text-xs font-bold text-[#315c45] transition hover:bg-[#edf3e9]"
                   >

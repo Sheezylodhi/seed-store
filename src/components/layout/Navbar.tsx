@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
   Heart,
   Menu,
@@ -96,16 +98,38 @@ export default function Navbar() {
 
   return (
     <>
-      {/* =========================================================
-          ANNOUNCEMENT BAR
-      ========================================================= */}
-      <div className="relative z-[60] overflow-hidden bg-[#234636]">
-        <div className="mx-auto flex min-h-[34px] max-w-[1380px] items-center justify-center px-4">
-          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.25em] text-white">
-            FREE DELIVERY
-          </p>
-        </div>
-      </div>
+{/* =========================================================
+    ANNOUNCEMENT BAR
+========================================================= */}
+<div className="relative z-[60] overflow-hidden bg-[#234636]">
+  <div className="flex min-h-[34px] items-center overflow-hidden">
+    <motion.div
+      className="flex w-max shrink-0 items-center"
+      animate={{ x: ["0%", "-50%"] }}
+      transition={{
+        x: {
+          duration: 25,
+          repeat: Infinity,
+          repeatType: "loop",
+          ease: "linear",
+        },
+      }}
+    >
+      {[0, 1, 2, 3].map((item) => (
+        <p
+          key={item}
+          aria-hidden={item !== 0}
+          className="shrink-0 whitespace-nowrap px-8 text-[10px] font-semibold uppercase tracking-[0.25em] text-white"
+        >
+          Get 10% discount on your first order and enjoy free delivery all over Pakistan
+          <span className="mx-8 text-white/60"></span>
+        </p>
+      ))}
+    </motion.div>
+  </div>
+</div>
+
+
 
       {/* =========================================================
           NAVBAR
@@ -117,27 +141,32 @@ export default function Navbar() {
             {/* =====================================================
                 LOGO
             ===================================================== */}
-            <Link
-              href="/"
-              className="group flex items-center gap-3"
-              onClick={handleMobileLinkClick}
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#10291d] transition-transform duration-300 group-hover:scale-105">
-                <span className="text-[15px] font-semibold tracking-[-0.04em] text-white">
-                  S
-                </span>
-              </div>
+           <Link
+  href="/"
+  className="group flex items-center gap-3"
+  onClick={handleMobileLinkClick}
+>
+  <div className="relative h-30 w-20 shrink-0 transition-transform duration-300 group-hover:scale-105">
+    <Image
+      src="/seedra-logo.webp"
+      alt="Seedra Logo"
+      fill
+      sizes="90px"
+      className="rounded-full object-contain"
+      priority
+    />
+  </div>
 
-              <div className="leading-none">
-                <div className="text-[18px] font-semibold tracking-[-0.04em] text-[#10291d]">
-                  Seedra
-                </div>
+  <div className="leading-none">
+    <div className="text-[18px] font-semibold tracking-[-0.04em] text-[#10291d]">
+      Seedra
+    </div>
 
-                <div className="mt-1 text-[8px] font-medium uppercase tracking-[0.28em] text-[#10291d]/50">
-                  Better Seeds
-                </div>
-              </div>
-            </Link>
+    <div className="mt-1 text-[8px] font-medium uppercase tracking-[0.28em] text-[#10291d]/50">
+      Better Seeds
+    </div>
+  </div>
+</Link>
 
             {/* =====================================================
                 DESKTOP NAVIGATION

@@ -376,7 +376,7 @@ export default function OurStory() {
               Better Growth
               <br />
               <span className="text-[#718171]">
-                Starts With Better Seeds.
+                Starts With Better nutrition.
               </span>
             </h2>
 

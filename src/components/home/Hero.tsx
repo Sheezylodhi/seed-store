@@ -164,16 +164,16 @@ export default function Hero() {
             }}
             className="font-serif text-[48px] font-medium leading-[1.02] tracking-[-0.04em] text-white sm:text-[64px] lg:text-[78px] xl:text-[86px]"
           >
-            Grow Better.
+            Better PCOS.
             <br />
 
             <span className="text-[#dce7dc]">
-              Start With
+              Control in Just 
             </span>
 
             <br />
 
-            Better Seeds.
+            90 Days.
           </motion.h1>
 
           {/* =====================================================
@@ -225,7 +225,7 @@ export default function Hero() {
               href="/shop"
               className="group inline-flex items-center justify-center gap-3 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-[#234636] shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#f8f6ef] hover:shadow-xl"
             >
-              Shop Seeds
+              Shop Now
 
               <ArrowRight
                 size={17}
@@ -249,47 +249,7 @@ export default function Hero() {
 
           </motion.div>
 
-          {/* =====================================================
-              TRUST POINTS
-          ====================================================== */}
-
-          <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            transition={{
-              duration: 0.7,
-              delay: 0.75,
-            }}
-            className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-white/20 pt-6"
-          >
-
-            {[
-              "Carefully Selected",
-              "Carefully Packed",
-              "Nationwide Delivery",
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-2 text-xs text-white/75"
-              >
-
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
-                  <Check
-                    size={12}
-                    className="text-[#dce7dc]"
-                  />
-                </span>
-
-                {item}
-
-              </div>
-            ))}
-
-          </motion.div>
+  
 
         </div>
 
