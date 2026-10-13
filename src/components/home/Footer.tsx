@@ -9,6 +9,8 @@ import {
   Phone,
   Sprout,
 } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 const shopLinks = [
   { label: "All Seeds", href: "/shop" },
@@ -110,6 +112,10 @@ function FooterLink({
 }
 
 export default function Footer() {
+   const [mobileOpen, setMobileOpen] = useState(false);
+  const handleMobileLinkClick = () => {
+    setMobileOpen(false);
+  };
   return (
     <footer className="relative overflow-hidden bg-[#182f24] text-[#f8f6ef]">
       {/* Subtle background details */}
@@ -126,24 +132,22 @@ export default function Footer() {
         <div className="grid gap-12 border-b border-white/[0.09] py-14 sm:py-16 lg:grid-cols-[1.45fr_0.8fr_0.9fr_0.9fr] lg:gap-12 lg:py-20">
           {/* Brand */}
           <div className="max-w-[370px]">
-            <Link
-              href="/"
-              aria-label="Seedra home"
-              className="inline-flex items-center gap-3"
-            >
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b8ce9e]/25 bg-[#315c45] text-[#e3ecd9]">
-                <Sprout size={24} strokeWidth={1.5} />
-              </span>
-
-              <span>
-                <span className="block font-serif text-[29px] font-semibold leading-none tracking-[-0.045em]">
-                  Seedra
-                </span>
-                <span className="mt-2 block text-[9px] font-medium uppercase tracking-[0.24em] text-[#a9bba9]">
-                  Better Seeds
-                </span>
-              </span>
-            </Link>
+                  <Link
+  href="/"
+  className="group flex items-center gap-3"
+  onClick={handleMobileLinkClick}
+>
+  <div className="relative h-30 w-35 shrink-0 transition-transform duration-300 group-hover:scale-105">
+    <Image
+      src="/seedra-logo-footer.webp"
+      alt="Seedra Logo"
+      fill
+      sizes="90px"
+      className="rounded-full object-contain"
+      priority
+    />
+  </div>
+</Link>
 
             <p className="mt-6 max-w-[340px] text-[13px] leading-7 text-[#b0bdb2]">
               Carefully selected seeds, thoughtfully prepared for a

@@ -146,25 +146,15 @@ export default function Navbar() {
   className="group flex items-center gap-3"
   onClick={handleMobileLinkClick}
 >
-  <div className="relative h-30 w-20 shrink-0 transition-transform duration-300 group-hover:scale-105">
+  <div className="relative h-30 w-35 shrink-0 transition-transform duration-300 group-hover:scale-105">
     <Image
-      src="/seedra-logo.webp"
+      src="/seedra-logo (1).webp"
       alt="Seedra Logo"
       fill
       sizes="90px"
       className="rounded-full object-contain"
       priority
     />
-  </div>
-
-  <div className="leading-none">
-    <div className="text-[18px] font-semibold tracking-[-0.04em] text-[#10291d]">
-      Seedra
-    </div>
-
-    <div className="mt-1 text-[8px] font-medium uppercase tracking-[0.28em] text-[#10291d]/50">
-      Better Seeds
-    </div>
   </div>
 </Link>
 
