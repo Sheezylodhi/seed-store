@@ -1016,19 +1016,19 @@ export async function POST(
 
 const reminderCreatedAt = new Date();
 
-    const order =
-      await Order.create({
-        orderNumber,
+const order = await Order.create({
+  orderNumber,
 
-  // TEMPORARY LOCAL TEST TIMING
+  // Reminder email after 25 days
   reminderDueAt: new Date(
-    reminderCreatedAt.getTime() + 2 * 60 * 1000
+    reminderCreatedAt.getTime() + 25 * 24 * 60 * 60 * 1000
   ),
   reminderStatus: "pending",
   reminderAttempts: 0,
 
+  // Follow-up email after 30 days
   followUpDueAt: new Date(
-    reminderCreatedAt.getTime() + 5 * 60 * 1000
+    reminderCreatedAt.getTime() + 30 * 24 * 60 * 60 * 1000
   ),
   followUpStatus: "pending",
   followUpAttempts: 0,
