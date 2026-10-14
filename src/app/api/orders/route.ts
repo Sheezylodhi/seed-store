@@ -1014,10 +1014,24 @@ export async function POST(
     /* CREATE ORDER                                                           */
     /* ---------------------------------------------------------------------- */
 
+const reminderCreatedAt = new Date();
+
     const order =
       await Order.create({
         orderNumber,
 
+  // TEMPORARY LOCAL TEST TIMING
+  reminderDueAt: new Date(
+    reminderCreatedAt.getTime() + 2 * 60 * 1000
+  ),
+  reminderStatus: "pending",
+  reminderAttempts: 0,
+
+  followUpDueAt: new Date(
+    reminderCreatedAt.getTime() + 5 * 60 * 1000
+  ),
+  followUpStatus: "pending",
+  followUpAttempts: 0,
         customerInfo: {
           firstName,
           lastName,

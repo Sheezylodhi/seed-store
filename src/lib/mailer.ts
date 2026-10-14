@@ -2864,3 +2864,320 @@ export async function sendOrderManagementUpdateEmail({
   });
 }
 
+
+/* -------------------------------------------------------
+   SEED CYCLE REMINDER EMAIL - CUSTOMER
+------------------------------------------------------- */
+
+export async function sendOrderReminderEmail(
+  email: string,
+   name: string,
+  order: {
+    orderNumber: string;
+    customerName: string;
+    items: {
+      name: string;
+      packSize?: string;
+      quantity: number;
+    }[];
+  }
+) {
+  const customerName =
+    order.customerName?.trim() || "there";
+
+  const safeName = escapeHtml(customerName);
+  const safeOrderNumber = escapeHtml(order.orderNumber);
+
+  const shopUrl = `${SITE_URL}/shop`;
+  const safeShopUrl = escapeHtml(shopUrl);
+
+  const itemsText = order.items
+    .map((item) => {
+      const pack = item.packSize
+        ? ` (${item.packSize})`
+        : "";
+
+      return `• ${item.name}${pack}`;
+    })
+    .join("\n");
+
+  const itemsHtml = order.items
+    .map((item) => {
+      const name = escapeHtml(item.name);
+      const pack = item.packSize
+        ? ` — ${escapeHtml(item.packSize)}`
+        : "";
+
+      return `
+        <li style="margin-bottom:10px;color:#34483b;line-height:1.6;">
+          <strong>${name}</strong>${pack}
+        </li>
+      `;
+    })
+    .join("");
+
+  await transporter.sendMail({
+    from: SMTP_FROM,
+    to: email,
+    subject: "A little seed-cycle reminder from Seedra 🌱",
+
+    text: `Hi ${customerName},
+
+It's been around 25 days since you placed your Seedra order!
+
+If you've been following your seed-cycling routine, this is a gentle reminder to review your supply and prepare for your next cycle.
+
+Your previous order: ${order.orderNumber}
+
+${itemsText}
+
+Ready to restock? Visit our shop:
+${shopUrl}
+
+Thank you for choosing Seedra.
+
+Warmly,
+Team Seedra`,
+
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Your Seedra Seed-Cycle Reminder</title>
+      </head>
+
+      <body style="margin:0;padding:0;background:#f5f7f2;font-family:Arial,Helvetica,sans-serif;color:#17231c;">
+
+        <div style="padding:30px 12px;">
+
+          <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5ebe2;border-radius:22px;overflow:hidden;">
+
+            <div style="background:#10291d;padding:32px 25px;text-align:center;">
+
+              <div style="font-size:12px;letter-spacing:3px;color:#c5dda8;font-weight:700;">
+                SEEDRA
+              </div>
+
+              <h1 style="margin:18px 0 8px;color:#ffffff;font-size:27px;line-height:1.3;">
+                Your seed-cycle reminder 🌱
+              </h1>
+
+              <p style="margin:0;color:#d8e3d9;font-size:14px;line-height:1.7;">
+                A little reminder to check in with your routine.
+              </p>
+
+            </div>
+
+            <div style="padding:32px 26px;">
+
+              <p style="margin:0 0 16px;font-size:16px;color:#263a2d;">
+                Hi ${safeName},
+              </p>
+
+              <p style="font-size:14px;line-height:1.9;color:#647168;margin:0 0 20px;">
+                It's been around <strong style="color:#234636;">25 days</strong>
+                since your Seedra order. If you've been following your
+                seed-cycling routine, now is a good time to review your
+                supplies and plan your next cycle.
+              </p>
+
+              <div style="padding:20px;background:#f3f6ed;border:1px solid #e5ebdc;border-radius:15px;">
+
+                <div style="font-size:11px;letter-spacing:1.5px;font-weight:700;color:#73836c;">
+                  YOUR PREVIOUS ORDER
+                </div>
+
+                <div style="margin-top:8px;font-size:17px;font-weight:700;color:#234636;">
+                  ${safeOrderNumber}
+                </div>
+
+                <ul style="padding-left:20px;margin:18px 0 0;">
+                  ${itemsHtml}
+                </ul>
+
+              </div>
+
+              <p style="margin:24px 0;font-size:14px;line-height:1.8;color:#647168;">
+                Running low on your seeds? Explore the Seedra collection
+                whenever you're ready. There's no pressure—just a friendly
+                reminder to help you stay organised.
+              </p>
+
+              <div style="text-align:center;margin:30px 0;">
+
+                <a
+                  href="${safeShopUrl}"
+                  style="display:inline-block;background:#315c42;color:#ffffff;text-decoration:none;padding:15px 27px;border-radius:10px;font-size:14px;font-weight:700;"
+                >
+                  Explore the Seedra Shop
+                </a>
+
+              </div>
+
+              <p style="font-size:13px;line-height:1.8;color:#7b857d;margin:0;">
+                Thank you for choosing Seedra and letting us be part of
+                your wellness routine.
+              </p>
+
+              <p style="font-size:14px;font-weight:700;color:#234636;margin:18px 0 0;">
+                Warmly,<br />Team Seedra 🌱
+              </p>
+
+            </div>
+
+            <div style="padding:20px;background:#fafbf8;border-top:1px solid #edf0e9;text-align:center;">
+
+              <p style="margin:0;color:#9aa39a;font-size:11px;line-height:1.7;">
+                Seedra · Natural, simple, better.
+              </p>
+
+              <p style="margin:6px 0 0;color:#a5aca5;font-size:10px;">
+                This is an order follow-up reminder.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </body>
+      </html>
+    `,
+  });
+}
+
+export async function sendOrderFinalFollowUpEmail(
+  email: string,
+  name: string,
+  order: {
+    orderNumber: string;
+    customerName: string;
+    items: {
+      name: string;
+      packSize?: string;
+      quantity: number;
+    }[];
+  }
+) {
+  const customerName = order.customerName?.trim() || name.trim() || "there";
+  const safeName = escapeHtml(customerName);
+  const safeOrderNumber = escapeHtml(order.orderNumber);
+  const shopUrl = `${SITE_URL.replace(/\/+$/, "")}/shop`;
+  const safeShopUrl = escapeHtml(shopUrl);
+
+  const itemsHtml = order.items.map((item) => `
+    <tr>
+      <td style="padding:13px 0;border-bottom:1px solid #e9eee6;color:#263a2d;font-size:14px;">
+        <strong>${escapeHtml(item.name)}</strong>
+        ${item.packSize ? `<div style="color:#7b857d;font-size:12px;margin-top:4px;">${escapeHtml(item.packSize)}</div>` : ""}
+      </td>
+      <td style="padding:13px 0;border-bottom:1px solid #e9eee6;text-align:right;color:#315c42;font-size:14px;font-weight:bold;">
+        × ${item.quantity}
+      </td>
+    </tr>
+  `).join("");
+
+  const itemsText = order.items.map((item) =>
+    `• ${item.name}${item.packSize ? ` (${item.packSize})` : ""} × ${item.quantity}`
+  ).join("\n");
+
+  await transporter.sendMail({
+    from: SMTP_FROM,
+    to: email,
+    subject: "Your Seedra follow-up 🌿 — whenever you're ready",
+
+    text: `Hi ${customerName},
+
+Just checking in one last time about your Seedra order.
+
+Order: #${order.orderNumber}
+
+${itemsText}
+
+If you need to replenish your seeds, you can explore our collection here:
+${shopUrl}
+
+There's no pressure to order again. Thank you for choosing Seedra!
+
+Warmly,
+Team Seedra`,
+
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your Seedra Follow-up</title>
+      </head>
+      <body style="margin:0;padding:0;background:#f2f4ed;font-family:Arial,Helvetica,sans-serif;color:#17291f;">
+        <div style="padding:32px 12px;">
+          <div style="max-width:600px;margin:auto;background:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #e3e9de;">
+
+            <div style="background:#10291d;padding:36px 24px;text-align:center;">
+              <p style="margin:0;color:#c5dda8;font-size:11px;letter-spacing:4px;font-weight:bold;">SEEDRA</p>
+              <div style="width:44px;height:2px;background:#b8ce9e;margin:20px auto;"></div>
+              <h1 style="font-family:Georgia,serif;font-size:30px;line-height:1.3;color:#ffffff;font-weight:normal;margin:0;">
+                A final little check-in
+              </h1>
+              <p style="color:#d8e3d9;font-size:14px;line-height:1.8;margin:14px 0 0;">
+                Your routine, your pace. We're here when you need us.
+              </p>
+            </div>
+
+            <div style="padding:32px 26px;">
+              <p style="font-size:16px;color:#263a2d;margin:0 0 16px;">Hi ${safeName},</p>
+
+              <p style="font-size:14px;line-height:1.9;color:#657268;margin:0 0 22px;">
+                We wanted to check in one last time following your recent Seedra order.
+                If you're running low on your seeds, you can revisit our collection
+                whenever it suits you. No pressure—just a friendly reminder.
+              </p>
+
+              <div style="background:#f7f8f2;border:1px solid #e4eadd;border-radius:14px;padding:22px;">
+                <p style="margin:0;color:#839078;font-size:10px;letter-spacing:2px;font-weight:bold;">
+                  YOUR ORDER REFERENCE
+                </p>
+                <p style="margin:8px 0 18px;font-size:19px;font-weight:bold;color:#234636;">
+                  #${safeOrderNumber}
+                </p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  ${itemsHtml}
+                </table>
+              </div>
+
+              <div style="text-align:center;margin:30px 0 24px;">
+                <a href="${safeShopUrl}"
+                   style="display:inline-block;background:#315c42;color:#ffffff;text-decoration:none;padding:15px 28px;border-radius:8px;font-size:14px;font-weight:bold;">
+                  Explore Our Collection &rarr;
+                </a>
+              </div>
+
+              <p style="font-family:Georgia,serif;font-size:18px;line-height:1.7;color:#315c42;text-align:center;">
+                Thank you for being part of Seedra.
+              </p>
+
+              <p style="font-size:13px;line-height:1.8;color:#7b857d;margin:20px 0 0;">
+                Warmly,<br><strong style="color:#234636;">Team Seedra</strong>
+              </p>
+            </div>
+
+            <div style="padding:20px;background:#fafbf7;border-top:1px solid #e9eee6;text-align:center;">
+              <p style="font-size:11px;color:#8b958b;margin:0;">
+                Seedra · Natural, simple, better.
+              </p>
+              <p style="font-size:10px;line-height:1.7;color:#a0a99f;margin:8px 0 0;">
+                This is a follow-up to your previous order.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  });
+}
